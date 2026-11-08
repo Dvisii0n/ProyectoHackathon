@@ -1,4 +1,4 @@
-import type { Practica, SolicitudMaterial, CategoriaInventario } from 'src/tipos/dominio';
+import type { Practica, TipoMaterial, SolicitudMaterial, ArticuloInventario, CategoriaInventario } from 'src/tipos/dominio';
 
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -7,8 +7,10 @@ import { useSearchParams } from 'react-router';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import InputAdornment from '@mui/material/InputAdornment';
 
 import { RouterLink } from 'src/routes/components';
 
@@ -18,12 +20,12 @@ import { useDatos } from 'src/ganchos/usar-datos';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Confeti, Tarjeta, ChipEstado, EncabezadoPagina } from 'src/componentes/comunes';
 import { colores, brincar, escanear, sxAparecer, sombraSuave, fuenteTitulos } from 'src/componentes/estilos';
-import { crearSolicitud, ventanaParaPedir, obtenerSolicitudes, obtenerMisPracticas, obtenerMaterialPrestable } from 'src/servicios';
+import { crearSolicitud, ventanaParaPedir, obtenerSolicitudes, obtenerMisPracticas, obtenerInventarioTodo, obtenerDisponibilidad } from 'src/servicios';
 
 import { Iconify } from 'src/components/iconify';
 
-import { ExploradorInventario } from '../compartido/explorador-inventario';
 import { horarioPractica, aparienciaSolicitud } from '../compartido/apariencia';
+import { tiposMaterial, ExploradorInventario } from '../compartido/explorador-inventario';
 
 import type { VistaArticulos } from '../compartido/explorador-inventario';
 
@@ -45,7 +47,7 @@ export function VistaPrestamo() {
 
   // Se puede pedir para prácticas con la ventana abierta, o ver las que ya tienen solicitud
   const practicas = (datos?.practicas ?? []).filter(
-    (p) => ventanaParaPedir(p).estado === 'abierta' || solicitudes?.some((s) => s.practicaId === p.id)
+    (p) => ventanaParaPedir(p).estado === 'abierta' || solicitudes?.some((s) => s.practicaId === p.id && s.renglones.length > 0)
   );
   const practicaId = parametros.get('practica') ?? practicas[0]?.id ?? null;
   const practica = practicas.find((p) => p.id === practicaId) ?? null;
@@ -87,28 +89,40 @@ export function VistaPrestamo() {
         </Box>
       )}
 
-      {practica && equipo && !solicitud && (
+      {/* Al crear la práctica ya existe una petición vacía por equipo: mientras no tenga materiales se puede pedir */}
+      {practica && equipo && (!solicitud || solicitud.renglones.length === 0) && (
         <FormularioSolicitud
           practica={practica}
+          equipoId={equipo.id}
           onEnviar={async (renglones) => {
             const nueva = await crearSolicitud({ practicaId: practica.id, equipoId: equipo.id, renglones }, usuario);
-            setSolicitudes((anteriores) => [nueva, ...(anteriores ?? [])]);
+            setSolicitudes((anteriores) => [nueva, ...(anteriores ?? []).filter((s) => s.id !== nueva.id)]);
           }}
         />
       )}
 
-      {practica && solicitud && <EstadoSolicitud solicitud={solicitud} practica={practica} onActualizar={recargar} />}
+      {practica && solicitud && solicitud.renglones.length > 0 && <EstadoSolicitud solicitud={solicitud} practica={practica} onActualizar={recargar} />}
     </DashboardContent>
   );
 }
 
 // ---------------------------- Pedir ----------------------------
 
-/** El mismo explorador del inventario (pestañas y tarjetas) con un contador por artículo */
-function FormularioSolicitud({ practica, onEnviar }: { practica: Practica; onEnviar: (renglones: { articuloId: string; cantidad: number }[]) => Promise<void> }) {
-  const { datos: materiales } = useDatos(obtenerMaterialPrestable);
+/** Para buscar sin importar mayúsculas ni acentos */
+const normalizar = (texto: string) => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/**
+ * El equipo pide su material con el mismo explorador del inventario (pestañas por categoría,
+ * tipo de material y búsqueda). Cada artículo muestra cuánto hay disponible para el horario
+ * de la práctica y no deja pedir más; lo agotado, en uso o ya apartado sale bloqueado.
+ */
+function FormularioSolicitud({ practica, equipoId, onEnviar }: { practica: Practica; equipoId: string; onEnviar: (renglones: { articuloId: string; cantidad: number }[]) => Promise<void> }) {
+  const { datos: materiales } = useDatos(obtenerInventarioTodo);
+  const { datos: disponibilidad, error: errorDisponibilidad } = useDatos(() => obtenerDisponibilidad(practica.id, equipoId), [practica.id, equipoId]);
   const [categoria, setCategoria] = useState<CategoriaInventario>('consumibles');
-  const [vista, setVista] = useState<VistaArticulos>('tarjetas');
+  const [vista, setVista] = useState<VistaArticulos>('lista');
+  const [tipo, setTipo] = useState<TipoMaterial | 'todos'>('todos');
+  const [busqueda, setBusqueda] = useState('');
   const [cantidades, setCantidades] = useState<Record<string, number>>({});
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,8 +130,21 @@ function FormularioSolicitud({ practica, onEnviar }: { practica: Practica; onEnv
   const elegidos = Object.entries(cantidades).filter(([, c]) => c > 0);
   const nombreDe = (id: string) => materiales?.find((m) => m.id === id)?.nombre ?? id;
 
+  /** Lo máximo que se puede pedir de un artículo: lo disponible (con datos reales) o un tope fijo (datos de ejemplo) */
+  const maximoDe = (articulo: ArticuloInventario) => {
+    const d = disponibilidad?.[articulo.id];
+    if (d) return d.disponible;
+    if (disponibilidad === null) return articulo.categoria === 'equipo' ? 1 : 10;
+    return 0;
+  };
+
   const cambiar = (id: string, delta: number, maximo: number) =>
     setCantidades((a) => ({ ...a, [id]: Math.max(0, Math.min(maximo, (a[id] ?? 0) + delta)) }));
+
+  const delaCategoria = (materiales ?? []).filter((m) => m.categoria === categoria);
+  const visibles = delaCategoria
+    .filter((m) => categoria !== 'utensilios' || tipo === 'todos' || m.tipoMaterial === tipo)
+    .filter((m) => busqueda.trim() === '' || normalizar(m.nombre).includes(normalizar(busqueda)));
 
   const enviar = async () => {
     setEnviando(true);
@@ -137,39 +164,96 @@ function FormularioSolicitud({ practica, onEnviar }: { practica: Practica; onEnv
         <Typography component="h2" sx={{ fontFamily: fuenteTitulos, fontWeight: 600, fontSize: 24 }}>
           ¿Qué necesita tu equipo para {practica.nombre}?
         </Typography>
-        <ChipEstado texto={horarioPractica(practica.inicio, practica.duracionHoras)} icono="biolab:reloj" fondo={colores.papelOscuro} color={colores.bosque} />
+        <ChipEstado texto={horarioPractica(practica.inicio, practica.duracionHoras, practica.fin)} icono="biolab:reloj" fondo={colores.papelOscuro} color={colores.bosque} />
       </Box>
 
       {error && <Alert severity="error" sx={{ borderRadius: '16px' }}>{error}</Alert>}
+      {errorDisponibilidad && (
+        <Alert severity="warning" sx={{ borderRadius: '16px' }}>
+          No se pudo consultar la disponibilidad. Puedes seguir, pero el laboratorio la vuelve a comprobar al enviar.
+        </Alert>
+      )}
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2.5, alignItems: 'flex-start' }}>
         <Box sx={{ flex: '3 1 520px', minWidth: 0 }}>
           <ExploradorInventario
             categoria={categoria}
-            onCambiarCategoria={setCategoria}
-            articulos={materiales?.filter((m) => m.categoria === categoria) ?? null}
+            onCambiarCategoria={(nueva) => {
+              setCategoria(nueva);
+              setBusqueda('');
+            }}
+            articulos={materiales ? visibles : null}
             vista={vista}
             onCambiarVista={setVista}
             resaltar={(articulo) => (cantidades[articulo.id] ?? 0) > 0}
             contador={(cat) => elegidos.filter(([id]) => materiales?.find((m) => m.id === id)?.categoria === cat).length}
+            arriba={
+              <>
+                <TextField
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder={`Buscar en ${categoria === 'consumibles' ? 'consumibles y reactivos' : categoria === 'equipo' ? 'equipo' : 'materiales'}…`}
+                  size="small"
+                  fullWidth
+                  slotProps={{ input: { startAdornment: <InputAdornment position="start"><Iconify icon="eva:search-fill" width={18} /></InputAdornment> } }}
+                  sx={{ bgcolor: colores.papel, borderRadius: 2 }}
+                />
+                {categoria === 'utensilios' && (
+                  <Box role="group" aria-label="Tipo de material" sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {[{ id: 'todos' as const, nombre: 'Todos' }, ...tiposMaterial].map((t) => {
+                      const activo = tipo === t.id;
+                      const total = delaCategoria.filter((m) => t.id === 'todos' || m.tipoMaterial === t.id).length;
+                      return (
+                        <Button
+                          key={t.id}
+                          onClick={() => setTipo(t.id)}
+                          aria-pressed={activo}
+                          sx={{ borderRadius: 99, px: 2, minHeight: 40, bgcolor: activo ? colores.bosque : colores.papel, color: activo ? colores.crema : colores.bosque, '&:hover': { bgcolor: activo ? colores.verde : colores.papelOscuro } }}
+                        >
+                          {t.nombre} · {total}
+                        </Button>
+                      );
+                    })}
+                  </Box>
+                )}
+              </>
+            }
             acciones={(articulo) => {
               const cantidad = cantidades[articulo.id] ?? 0;
-              const maximo = articulo.categoria === 'equipo' ? 1 : 10;
-              const ocupado = articulo.estado === 'ocupado';
+              const maximo = maximoDe(articulo);
+              const d = disponibilidad?.[articulo.id];
+              const bloqueado = maximo === 0;
+
+              if (bloqueado) {
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.75, borderRadius: 99, bgcolor: colores.rosa, color: colores.tinto, fontWeight: 800, fontSize: 14 }}>
+                    <Iconify icon="biolab:prohibido" width={16} />
+                    {d?.motivo ?? 'No disponible'}
+                  </Box>
+                );
+              }
+
               return (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                  <IconButton aria-label={`Quitar ${articulo.nombre}`} onClick={() => cambiar(articulo.id, -1, maximo)} disabled={cantidad === 0} sx={{ bgcolor: colores.crema, width: 40, height: 40 }}>
-                    <Box component="span" sx={{ fontWeight: 900, fontSize: 22, lineHeight: 1 }}>−</Box>
-                  </IconButton>
-                  <Box sx={{ minWidth: 28, textAlign: 'center', fontWeight: 900, fontSize: 20 }} aria-live="polite">{cantidad}</Box>
-                  <IconButton
-                    aria-label={`Agregar ${articulo.nombre}`}
-                    onClick={() => cambiar(articulo.id, 1, maximo)}
-                    disabled={cantidad >= maximo || ocupado}
-                    sx={{ bgcolor: colores.verde, color: colores.crema, width: 40, height: 40, '&:hover': { bgcolor: colores.bosque } }}
-                  >
-                    <Iconify icon="biolab:mas" width={20} />
-                  </IconButton>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                    <IconButton aria-label={`Quitar ${articulo.nombre}`} onClick={() => cambiar(articulo.id, -1, maximo)} disabled={cantidad === 0} sx={{ bgcolor: colores.crema, width: 40, height: 40 }}>
+                      <Box component="span" sx={{ fontWeight: 900, fontSize: 22, lineHeight: 1 }}>−</Box>
+                    </IconButton>
+                    <Box sx={{ minWidth: 28, textAlign: 'center', fontWeight: 900, fontSize: 20 }} aria-live="polite">{cantidad}</Box>
+                    <IconButton
+                      aria-label={`Agregar ${articulo.nombre}`}
+                      onClick={() => cambiar(articulo.id, 1, maximo)}
+                      disabled={cantidad >= maximo}
+                      sx={{ bgcolor: colores.verde, color: colores.crema, width: 40, height: 40, '&:hover': { bgcolor: colores.bosque } }}
+                    >
+                      <Iconify icon="biolab:mas" width={20} />
+                    </IconButton>
+                  </Box>
+                  {d && (
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: cantidad >= maximo ? colores.tinto : colores.verde }}>
+                      {cantidad >= maximo ? `Es todo lo que hay (${maximo})` : `Disponibles: ${maximo}`}
+                    </Typography>
+                  )}
                 </Box>
               );
             }}
@@ -196,7 +280,7 @@ function FormularioSolicitud({ practica, onEnviar }: { practica: Practica; onEnv
             disabled={elegidos.length === 0 || enviando}
             size="large"
             startIcon={<Iconify icon="biolab:enviar" />}
-            sx={{ borderRadius: 99, minHeight: 54, fontSize: 16, bgcolor: colores.verde, color: colores.crema, boxShadow: '0 14px 28px -14px rgba(18,42,14,.7)', '&:hover': { bgcolor: colores.bosque }, '&.Mui-disabled': { bgcolor: colores.crema, color: colores.verde, boxShadow: 'none' } }}
+            sx={{ borderRadius: 99, minHeight: 54, fontSize: 16, bgcolor: colores.verde, color: colores.crema, boxShadow: '0 14px 28px -14px rgba(90,31,55,.7)', '&:hover': { bgcolor: colores.bosque }, '&.Mui-disabled': { bgcolor: colores.crema, color: colores.verde, boxShadow: 'none' } }}
           >
             {enviando ? 'Enviando…' : 'Enviar al laboratorista'}
           </Button>
@@ -243,7 +327,7 @@ function EstadoSolicitud({ solicitud, practica, onActualizar }: { solicitud: Sol
         <Typography component="h2" sx={{ fontFamily: fuenteTitulos, fontWeight: 600, fontSize: 32, lineHeight: 1.1 }}>{mensaje.titulo}</Typography>
         <Typography sx={{ fontSize: 17, fontWeight: 600 }}>{mensaje.texto}</Typography>
         <Typography variant="body2" sx={{ fontWeight: 800, color: colores.verde }}>
-          {practica.nombre} · {horarioPractica(practica.inicio, practica.duracionHoras)} · pidió {solicitud.solicitanteNombre}
+          {practica.nombre} · {horarioPractica(practica.inicio, practica.duracionHoras, practica.fin)} · pidió {solicitud.solicitanteNombre}
         </Typography>
 
         <Box sx={{ bgcolor: colores.crema, borderRadius: '20px', p: 2, display: 'flex', flexDirection: 'column', gap: 0.75 }}>

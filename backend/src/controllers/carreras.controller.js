@@ -1,8 +1,22 @@
 import { query } from '../config/db.js';
 import { ApiError } from '../utils/ApiError.js';
-import { enteroPositivo, textoRequerido } from '../utils/validaciones.js';
+import { enteroPositivo, textoRequerido, validarEnum } from '../utils/validaciones.js';
+
+const CARRERAS_VALIDAS = [
+  'LICENCIATURA EN CIENCIAS BIOMEDICAS',
+  'LICENCIATURA EN PSICOLOGIA',
+  'LICENCIATURA EN CRIMINALISTICA Y CIENCIAS PERICIALES',
+];
 
 const COLUMNAS = 'carrera_id, carrera';
+
+function validarCarrera(valor) {
+  return validarEnum(
+    String(valor ?? '').trim().toUpperCase(),
+    'carrera',
+    CARRERAS_VALIDAS,
+  );
+}
 
 /** GET /api/carreras */
 export async function listar(req, res) {
@@ -37,7 +51,7 @@ export async function crear(req, res) {
     `INSERT INTO carreras (carrera)
      VALUES ($1)
      RETURNING ${COLUMNAS}`,
-    [textoRequerido(carrera, 'La carrera', { max: 150 })],
+    [validarCarrera(carrera)],
   );
 
   res.status(201).json({ carrera: rows[0] });
@@ -57,7 +71,7 @@ export async function actualizar(req, res) {
         SET carrera = $1
       WHERE carrera_id = $2
       RETURNING ${COLUMNAS}`,
-    [textoRequerido(carrera, 'La carrera', { max: 150 }), id],
+    [validarCarrera(carrera), id],
   );
 
   if (rows.length === 0) {

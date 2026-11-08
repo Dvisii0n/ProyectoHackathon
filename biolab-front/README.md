@@ -1,6 +1,6 @@
 # Biolab · Front
 
-Sistema del laboratorio de la Licenciatura en Biomédica: horarios, inventario, reportes de aula, préstamo de material con QR y galería de prácticas, con **Capi**, la capibara mascota que lleva la racha.
+Sistema del laboratorio de la Licenciatura en Ciencias Biomédicas: horarios, inventario, reportes de aula, préstamo de material con QR y galería de prácticas, con **Capi**, la capibara mascota que lleva la racha.
 
 Está hecho sobre la plantilla gratuita **Minimals** (Vite + React 19 + TypeScript + MUI 7).
 

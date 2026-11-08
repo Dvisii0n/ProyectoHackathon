@@ -28,6 +28,8 @@ const opcionesMenu: OpcionMenu[] = [
   { title: 'Mis prácticas', path: '/mis-practicas', icon: icono('biolab:microscopio'), permiso: 'verMisPracticas' },
   { title: 'Pedir material', path: '/pedir-material', icon: icono('biolab:qr'), permiso: 'pedirMaterial' },
   { title: 'Hacer reporte', path: '/reportes/nuevo', icon: icono('biolab:lapiz'), permiso: 'crearReportes' },
+  { title: 'Cuentas', path: '/usuarios', icon: icono('biolab:persona'), permiso: 'gestionarUsuarios' },
+  { title: 'Materias', path: '/materias', icon: icono('biolab:microscopio'), permiso: 'gestionarMaterias' },
   { title: 'Inventario', path: '/inventario', icon: icono('biolab:matraz'), permiso: 'verInventario' },
   { title: 'Horarios', path: '/horarios', icon: icono('biolab:calendario') },
   { title: 'Galería y Capi', path: '/galeria', icon: icono('biolab:galeria'), permiso: 'verGaleria' },

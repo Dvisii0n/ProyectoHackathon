@@ -13,6 +13,7 @@ import { useSesion } from 'src/contexto/sesion';
 import { useDatos } from 'src/ganchos/usar-datos';
 import { obtenerHorarioSemana } from 'src/servicios';
 import { DashboardContent } from 'src/layouts/dashboard';
+import { lunesDe, semanaVigente } from 'src/utilidades/horario';
 import { Tarjeta, EncabezadoPagina } from 'src/componentes/comunes';
 import { colores, brincar, sxAparecer, sxLevantar, sombraSuave, fuenteTitulos } from 'src/componentes/estilos';
 
@@ -27,24 +28,36 @@ import { aparienciaLaboratorio } from '../compartido/apariencia';
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
 const DIAS_COMPLETOS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
-const HORAS = [8, 9, 10, 11, 12, 13, 14];
+const HORAS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+const DIA_MS = 24 * 3_600_000;
 
 type Filtro = IdLaboratorio | 'todos';
 
 export function VistaHorarios() {
   const { permisos } = useSesion();
-  const { datos: bloques } = useDatos(obtenerHorarioSemana);
+  const [semana, setSemana] = useState(() => semanaVigente());
+  const { datos: bloques, cargando } = useDatos(() => obtenerHorarioSemana(semana), [semana.getTime()]);
 
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const router = useRouter();
 
-  const hoy = Math.min(Math.max(new Date().getDay() - 1, 0), 4);
+  const esEstaSemana = semana.getTime() === semanaVigente().getTime();
+  const hoy = esEstaSemana ? (new Date().getDay() + 6) % 7 : -1;
   const puedeReservar = permisos.gestionarPracticas;
+  const fechaDe = (dia: number) => new Date(semana.getTime() + dia * DIA_MS);
+  const moverSemana = (semanas: number) => setSemana((actual) => lunesDe(new Date(actual.getTime() + semanas * 7 * DIA_MS + 12 * 3_600_000)));
+  const rango = `${fechaDe(0).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} – ${fechaDe(4).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`.replace(/\./g, '');
+
+  /** ¿Ese bloque ya pasó? No se puede crear una práctica ahí */
+  const yaPaso = (dia: DiaSemana, hora: number) => {
+    const fecha = fechaDe(dia);
+    fecha.setHours(hora, 0, 0, 0);
+    return fecha.getTime() < Date.now();
+  };
 
   /** Lleva al formulario de nueva práctica con el día y la hora ya puestos */
   const crearPracticaAqui = (dia: DiaSemana, hora: number) => {
-    const fecha = new Date();
-    fecha.setDate(fecha.getDate() - ((fecha.getDay() + 6) % 7) + dia);
+    const fecha = fechaDe(dia);
     const dosDigitos = (n: number) => String(n).padStart(2, '0');
     const iso = `${fecha.getFullYear()}-${dosDigitos(fecha.getMonth() + 1)}-${dosDigitos(fecha.getDate())}`;
     const laboratorio = filtro === 'todos' ? '' : `&laboratorio=${filtro}`;
@@ -58,8 +71,8 @@ export function VistaHorarios() {
         titulo="Horarios"
         descripcion={
           puedeReservar
-            ? 'Toca un espacio con "+" para crear una práctica en ese día y hora.'
-            : 'Así está ocupado el laboratorio esta semana.'
+            ? 'Cada práctica ocupa sus horas de inicio a fin. Toca un espacio con "+" para crear una ahí.'
+            : 'Así está ocupado el laboratorio cada semana.'
         }
       />
 
@@ -79,7 +92,7 @@ export function VistaHorarios() {
                 px: 2.25,
                 bgcolor: activo ? colores.bosque : colores.crema,
                 color: activo ? colores.crema : colores.bosque,
-                boxShadow: activo ? 'none' : '0 6px 16px -12px rgba(18,42,14,.5)',
+                boxShadow: activo ? 'none' : '0 6px 16px -12px rgba(90,31,55,.5)',
                 '&:hover': { bgcolor: activo ? colores.verde : colores.papel },
               }}
             >
@@ -87,6 +100,22 @@ export function VistaHorarios() {
             </Button>
           );
         })}
+      </Box>
+
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mb: 2, ...sxAparecer(0.1) }}>
+        <Button onClick={() => moverSemana(-1)} startIcon={<Iconify icon="biolab:flecha" sx={{ transform: 'rotate(180deg)' }} />} sx={{ borderRadius: 99, px: 2, minHeight: 44, bgcolor: colores.crema, color: colores.bosque, '&:hover': { bgcolor: colores.papel } }}>
+          Anterior
+        </Button>
+        <Typography sx={{ fontFamily: fuenteTitulos, fontWeight: 600, fontSize: 20, px: 1, minWidth: 200, textAlign: 'center' }}>{rango}</Typography>
+        <Button onClick={() => moverSemana(1)} endIcon={<Iconify icon="biolab:flecha" />} sx={{ borderRadius: 99, px: 2, minHeight: 44, bgcolor: colores.crema, color: colores.bosque, '&:hover': { bgcolor: colores.papel } }}>
+          Siguiente
+        </Button>
+        {!esEstaSemana && (
+          <Button onClick={() => setSemana(semanaVigente())} sx={{ borderRadius: 99, px: 2, minHeight: 44, bgcolor: colores.bosque, color: colores.crema, '&:hover': { bgcolor: colores.verde } }}>
+            Esta semana
+          </Button>
+        )}
+        {cargando && <Typography sx={{ fontWeight: 700, color: colores.verde }}>Cargando…</Typography>}
       </Box>
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2.5, alignItems: 'flex-start' }}>
@@ -98,7 +127,8 @@ export function VistaHorarios() {
                 key={dia}
                 sx={{ textAlign: 'center', py: 1, borderRadius: '14px', fontWeight: 900, fontSize: 15, bgcolor: i === hoy ? colores.bosque : colores.papel, color: i === hoy ? colores.crema : colores.bosque }}
               >
-                {i === hoy ? `${dia} · hoy` : dia}
+                {dia} {fechaDe(i).getDate()}
+                {i === hoy ? ' · hoy' : ''}
               </Box>
             ))}
 
@@ -109,6 +139,7 @@ export function VistaHorarios() {
                 bloques={bloques ?? []}
                 filtro={filtro}
                 puedeReservar={puedeReservar}
+                yaPaso={yaPaso}
                 elegido={null}
                 onElegir={(dia) => crearPracticaAqui(dia, hora)}
               />
@@ -157,18 +188,20 @@ type FilaHoraProps = {
   bloques: BloqueHorario[];
   filtro: Filtro;
   puedeReservar: boolean;
+  yaPaso: (dia: DiaSemana, hora: number) => boolean;
   elegido: { dia: DiaSemana; hora: number } | null;
   onElegir: (dia: DiaSemana) => void;
 };
 
-function FilaHora({ hora, bloques, filtro, puedeReservar, elegido, onElegir }: FilaHoraProps) {
+function FilaHora({ hora, bloques, filtro, puedeReservar, yaPaso, elegido, onElegir }: FilaHoraProps) {
   return (
     <>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 0.75, fontSize: 14, fontWeight: 800, color: colores.verde }}>
         {hora}:00
       </Box>
       {([0, 1, 2, 3, 4] as DiaSemana[]).map((dia) => {
-        const bloque = bloques.find((b) => b.dia === dia && b.hora === hora);
+        const enBloque = bloques.filter((b) => b.dia === dia && b.hora === hora);
+        const bloque = enBloque[0];
 
         if (bloque) {
           const apariencia = aparienciaLaboratorio[bloque.laboratorioId];
@@ -196,14 +229,17 @@ function FilaHora({ hora, bloques, filtro, puedeReservar, elegido, onElegir }: F
                 <Iconify icon={apariencia.icono} width={15} />
                 {bloque.practica}
               </Box>
-              <Box sx={{ fontSize: 12, fontWeight: 700, opacity: 0.85 }}>Grupo {bloque.grupo}</Box>
+              <Box sx={{ fontSize: 12, fontWeight: 700, opacity: 0.85 }}>
+                {bloque.grupo ? `Grupo ${bloque.grupo}` : ''}
+                {enBloque.length > 1 ? `${bloque.grupo ? ' · ' : ''}+${enBloque.length - 1} más` : ''}
+              </Box>
             </Box>
           );
         }
 
         const esElegido = elegido?.dia === dia && elegido.hora === hora;
 
-        if (!puedeReservar) {
+        if (!puedeReservar || yaPaso(dia, hora)) {
           return <Box key={dia} sx={{ minHeight: 64, borderRadius: '16px', border: `2.5px dashed ${colores.salviaClara}` }} />;
         }
 

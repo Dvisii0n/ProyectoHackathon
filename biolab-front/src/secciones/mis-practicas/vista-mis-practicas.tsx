@@ -119,7 +119,7 @@ function TarjetaPractica({ practica, indice, solicitud }: { practica: Practica; 
         <Box sx={{ flex: '1 1 240px', minWidth: 0 }}>
           <Typography sx={{ fontFamily: fuenteTitulos, fontWeight: 600, fontSize: 21, lineHeight: 1.2 }}>{practica.nombre}</Typography>
           <Typography sx={{ fontWeight: 700, color: colores.verde }}>
-            {lab.nombre} · {horarioPractica(practica.inicio, practica.duracionHoras)}
+            {lab.nombre} · {horarioPractica(practica.inicio, practica.duracionHoras, practica.fin)}
           </Typography>
           {practica.descripcion && <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.5 }}>{practica.descripcion}</Typography>}
         </Box>

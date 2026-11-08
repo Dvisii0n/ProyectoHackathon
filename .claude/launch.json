@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "biolab-front",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "biolab-front", "run", "dev"],
+      "port": 3039
+    }
+  ]
+}

@@ -1,12 +1,16 @@
 import type {
+  Cuenta,
+  Materia,
   Reporte,
   Practica,
+  GrupoEscolar,
   EquipoAlumnos,
   SolicitudMaterial,
+  AsignacionMateria,
   ArticuloInventario,
 } from 'src/tipos/dominio';
 
-import { equiposMock, reportesMock, practicasMock, inventarioMock, solicitudesMock } from './index';
+import { equiposMock, cuentasMock, materiasMock, reportesMock, practicasMock, inventarioMock, solicitudesMock, asignacionesMock, gruposEscolaresMock } from './index';
 
 // ----------------------------------------------------------------------
 // "Base de datos" de mentiras para el prototipo. Guarda los cambios en el
@@ -15,22 +19,30 @@ import { equiposMock, reportesMock, practicasMock, inventarioMock, solicitudesMo
 // ----------------------------------------------------------------------
 
 type Tablas = {
+  cuentas: Cuenta[];
+  grupos: GrupoEscolar[];
   reportes: Reporte[];
   practicas: Practica[];
   equipos: EquipoAlumnos[];
   solicitudes: SolicitudMaterial[];
   inventario: ArticuloInventario[];
+  materias: Materia[];
+  asignaciones: AsignacionMateria[];
 };
 
-const CLAVE = 'biolab:datos-demo:v2';
+const CLAVE = 'biolab:datos-demo:v5';
 
 function datosIniciales(): Tablas {
   return structuredClone({
+    cuentas: cuentasMock,
+    grupos: gruposEscolaresMock,
     reportes: reportesMock,
     practicas: practicasMock,
     equipos: equiposMock,
     solicitudes: solicitudesMock,
     inventario: inventarioMock,
+    materias: materiasMock,
+    asignaciones: asignacionesMock,
   });
 }
 

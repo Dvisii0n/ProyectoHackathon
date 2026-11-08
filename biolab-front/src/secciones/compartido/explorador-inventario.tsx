@@ -1,5 +1,5 @@
 import type { IconifyName } from 'src/components/iconify/register-icons';
-import type { ArticuloInventario, CategoriaInventario } from 'src/tipos/dominio';
+import type { TipoMaterial, ArticuloInventario, CategoriaInventario } from 'src/tipos/dominio';
 
 import Box from '@mui/material/Box';
 import Tooltip from '@mui/material/Tooltip';
@@ -25,8 +25,16 @@ export type VistaArticulos = 'tarjetas' | 'lista';
 
 export const categoriasInventario: { id: CategoriaInventario; nombre: string; icono: IconifyName; fondo: string; color: string }[] = [
   { id: 'consumibles', nombre: 'Consumibles y reactivos', icono: 'biolab:matraz', fondo: colores.menta, color: colores.verde },
-  { id: 'equipo', nombre: 'Equipo', icono: 'biolab:microscopio', fondo: '#E7EBDD', color: colores.verde },
-  { id: 'utensilios', nombre: 'Utensilios', icono: 'biolab:vaso', fondo: colores.durazno, color: colores.cafeTexto },
+  { id: 'equipo', nombre: 'Equipo', icono: 'biolab:microscopio', fondo: '#F2EFE8', color: colores.verde },
+  { id: 'utensilios', nombre: 'Materiales', icono: 'biolab:vaso', fondo: colores.durazno, color: colores.cafeTexto },
+];
+
+/** Enum categoria_material del back, en plural para filtros y etiquetas */
+export const tiposMaterial: { id: TipoMaterial; nombre: string; singular: string }[] = [
+  { id: 'VOLUMETRICO', nombre: 'Volumétricos', singular: 'Volumétrico' },
+  { id: 'NO_VOLUMETRICO', nombre: 'No volumétricos', singular: 'No volumétrico' },
+  { id: 'UTENSILIO', nombre: 'Utensilios', singular: 'Utensilio' },
+  { id: 'METAL', nombre: 'Metales', singular: 'Metal' },
 ];
 
 type ExploradorInventarioProps = {
@@ -154,8 +162,21 @@ type ArticuloProps = {
   resaltado: boolean;
 };
 
+/** Llegó a su mínimo de stock (o, en los datos de ejemplo, queda menos del 35 %) */
+export function estaBajoStock(articulo: ArticuloInventario) {
+  return articulo.bajoStock ?? (articulo.porcentajeRestante !== undefined && articulo.porcentajeRestante < 35);
+}
+
+/** Fondo y borde del recuadro: rojo cuando está bajo en stock */
+function sxRecuadro(articulo: ArticuloInventario, resaltado: boolean) {
+  const bajo = estaBajoStock(articulo);
+  const bordes = [bajo ? `inset 0 0 0 2px ${colores.tinto}` : null, resaltado ? `inset 0 0 0 4px ${colores.verde}` : null].filter(Boolean);
+  return { bgcolor: bajo ? colores.rojoSuave : colores.papel, boxShadow: bordes.length > 0 ? bordes.join(', ') : 'none' };
+}
+
 function subtituloDe(articulo: ArticuloInventario) {
-  return [articulo.cantidad, articulo.ubicacion].filter(Boolean).join(' · ');
+  const tipo = tiposMaterial.find((t) => t.id === articulo.tipoMaterial)?.singular;
+  return [tipo, articulo.cantidad, articulo.descripcion, articulo.ubicacion].filter(Boolean).join(' · ');
 }
 
 function TarjetaArticulo({ articulo, indice, acciones, resaltado }: ArticuloProps) {
@@ -167,13 +188,12 @@ function TarjetaArticulo({ articulo, indice, acciones, resaltado }: ArticuloProp
           flex: 1,
           p: 2,
           borderRadius: '24px',
-          bgcolor: colores.papel,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           textAlign: 'center',
           gap: 1,
-          boxShadow: resaltado ? `inset 0 0 0 3px ${colores.verde}` : 'none',
+          ...sxRecuadro(articulo, resaltado),
           ...sxLevantar,
         }}
       >
@@ -194,7 +214,7 @@ function FilaArticulo({ articulo, indice, acciones, resaltado }: ArticuloProps) 
     <Box sx={sxAparecer(indice * 0.05)}>
       <Box
         component="article"
-        sx={{ px: 2, py: 1.5, borderRadius: '22px', bgcolor: colores.papel, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, boxShadow: resaltado ? `inset 0 0 0 3px ${colores.verde}` : 'none', ...sxLevantar }}
+        sx={{ px: 2, py: 1.5, borderRadius: '22px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, ...sxRecuadro(articulo, resaltado), ...sxLevantar }}
       >
         {articulo.porcentajeRestante !== undefined ? <TuboNivel porcentaje={articulo.porcentajeRestante} /> : <IconoArticulo articulo={articulo} tamano={52} />}
         <Box sx={{ flex: '1 1 200px', minWidth: 0 }}>
@@ -263,8 +283,16 @@ function EstadoArticulo({ articulo }: { articulo: ArticuloInventario }) {
     return articulo.porcentajeRestante < 35 ? (
       <ChipEstado texto="Poco stock" icono="biolab:alerta" fondo={colores.tinto} color={colores.crema} />
     ) : (
-      <ChipEstado texto="Suficiente" icono="biolab:paloma" fondo={colores.menta} color="#2E4429" />
+      <ChipEstado texto="Suficiente" icono="biolab:paloma" fondo={colores.menta} color="#6E2643" />
     );
+  }
+
+  if (articulo.cantidadNumero === 0 || /^0\b/.test(articulo.cantidad)) {
+    return <ChipEstado texto="Agotado" icono="biolab:alerta" fondo={colores.tinto} color={colores.crema} />;
+  }
+
+  if (articulo.bajoStock) {
+    return <ChipEstado texto={`Stock bajo · mínimo ${articulo.minimo ?? 0}`} icono="biolab:alerta" fondo={colores.tinto} color={colores.crema} />;
   }
 
   if (articulo.estado) {

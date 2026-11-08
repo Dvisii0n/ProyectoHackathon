@@ -4,6 +4,21 @@ import { enteroPositivo, textoRequerido } from '../utils/validaciones.js';
 
 const COLUMNAS = 'grupo_id, grupo';
 
+/**
+ * Los grupos se nombran semestre-número: "1-01" es semestre 1, grupo 1.
+ * Se acepta "1-1" y se guarda como "1-01".
+ */
+function validarGrupo(valor) {
+  const texto = textoRequerido(valor, 'El grupo', { min: 1, max: 10 });
+  const partes = /^([1-9])\s*-\s*(\d{1,2})$/.exec(texto);
+
+  if (!partes || Number(partes[2]) === 0) {
+    throw new ApiError(400, 'El grupo debe ser semestre-número, por ejemplo 1-01 (semestre 1, grupo 1)');
+  }
+
+  return `${partes[1]}-${partes[2].padStart(2, '0')}`;
+}
+
 /** GET /api/grupos */
 export async function listar(req, res) {
   const { rows } = await query(
@@ -37,7 +52,7 @@ export async function crear(req, res) {
     `INSERT INTO grupo (grupo)
      VALUES ($1)
      RETURNING ${COLUMNAS}`,
-    [textoRequerido(grupo, 'El grupo', { max: 100 })],
+    [validarGrupo(grupo)],
   );
 
   res.status(201).json({ grupo: rows[0] });
@@ -57,7 +72,7 @@ export async function actualizar(req, res) {
         SET grupo = $1
       WHERE grupo_id = $2
       RETURNING ${COLUMNAS}`,
-    [textoRequerido(grupo, 'El grupo', { max: 100 }), id],
+    [validarGrupo(grupo), id],
   );
 
   if (rows.length === 0) {

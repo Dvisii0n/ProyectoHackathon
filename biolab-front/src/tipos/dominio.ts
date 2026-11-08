@@ -10,9 +10,10 @@ export type Rol = 'coordinador' | 'laboratorista' | 'profesor' | 'alumno';
 export type Usuario = {
   id: string;
   nombre: string;
-  correo: string;
+  /** Nombre de usuario con el que inicia sesión, p. ej. "ana.lopez" */
+  usuario: string;
   rol: Rol;
-  /** Solo alumnos: grupo al que pertenece, p. ej. "3B" */
+  /** Solo alumnos: grupo al que pertenece, p. ej. "3-02" (semestre 3, grupo 2) */
   grupo?: string;
   /** Solo alumnos: si está suspendido no puede pedir material ni reservar */
   suspendido?: boolean;
@@ -36,7 +37,12 @@ export type EquipoAlumnos = {
   integrantes: { id: string; nombre: string }[];
 };
 
-export type NuevoEquipo = Omit<EquipoAlumnos, 'id' | 'profesorId'>;
+export type NuevoEquipo = Omit<EquipoAlumnos, 'id' | 'profesorId'> & {
+  /** Con back: fila de R_PROFESOR_MATERIA a la que pertenece el equipo */
+  asignacionId?: number;
+  /** Con back: grupo (tabla GRUPO) de los integrantes */
+  grupoId?: number;
+};
 
 /** Práctica que crea el profesor: día, hora, laboratorio y qué equipos la hacen */
 export type Practica = {
@@ -48,8 +54,10 @@ export type Practica = {
   profesorNombre: string;
   /** Fecha y hora de inicio, ISO 8601 */
   inicio: string;
-  /** Duración en horas (bloques de 1 h) */
+  /** Duración en horas (se calcula de inicio y fin) */
   duracionHoras: number;
+  /** Fecha y hora de fin, ISO 8601 (columna fecha_final) */
+  fin?: string;
   descripcion?: string;
   equipoIds: string[];
 };
@@ -81,7 +89,7 @@ export type Reporte = {
   practicaId: string;
   /** Solo reportes de material: equipo responsable */
   equipoId?: string;
-  /** Texto listo para mostrar, p. ej. "Microbiología · Grupo 3B" */
+  /** Texto listo para mostrar, p. ej. "Microbiología · Grupo 3-02" */
   titulo: string;
   nombrePractica: string;
   autorRol: Extract<Rol, 'laboratorista' | 'profesor'>;
@@ -101,10 +109,14 @@ export type Reporte = {
   decision: Decision | null;
 };
 
+/** Máximo de fotos de evidencia por reporte */
+export const MAX_EVIDENCIAS = 5;
+
 /** Lo que manda el laboratorista o profesor al crear un reporte */
 export type NuevoReporte = {
   practicaId: string;
   calificaciones: CalificacionesReporte;
+  /** Evidencias: hasta MAX_EVIDENCIAS fotos */
   fotos: File[];
   nota?: string;
 };
@@ -114,6 +126,12 @@ export type NuevoReporte = {
 export type CategoriaInventario = 'consumibles' | 'equipo' | 'utensilios';
 
 export type EstadoEquipo = 'disponible' | 'ocupado' | 'mantenimiento';
+
+/** Enum categoria_material del back: tipo de material dentro de "Materiales" */
+export type TipoMaterial = 'VOLUMETRICO' | 'NO_VOLUMETRICO' | 'UTENSILIO' | 'METAL';
+
+/** Enum tipo_consumible del back: define qué unidades son válidas */
+export type TipoConsumible = 'CONSUMIBLE' | 'REACTIVO';
 
 export type ArticuloInventario = {
   id: string;
@@ -128,6 +146,17 @@ export type ArticuloInventario = {
   /** Equipo: estado actual. Solo el equipo se puede reservar */
   estado?: EstadoEquipo;
   laboratorioId?: IdLaboratorio;
+  /** Solo materiales: volumétrico, no volumétrico, utensilio o metal */
+  tipoMaterial?: TipoMaterial;
+  /** Solo consumibles: consumible de conteo o reactivo */
+  tipoConsumible?: TipoConsumible;
+  /** Cantidad como número (la de `cantidad` es el texto para mostrar) */
+  cantidadNumero?: number;
+  /** pzas, cajas, frasco 500 g… (materiales: pzas; equipo: equipos) */
+  unidad?: string;
+  /** Con cantidad <= minimo el artículo está bajo en stock */
+  minimo?: number;
+  bajoStock?: boolean;
 };
 
 export type NuevoArticulo = Omit<ArticuloInventario, 'id'>;
@@ -187,6 +216,17 @@ export type SolicitudMaterial = {
   codigoQr?: string;
 };
 
+/** Cuánto se puede pedir de un artículo para una práctica (lo calcula el back) */
+export type Disponibilidad = {
+  existencia: number;
+  /** Ya aprobado a otros equipos en ese horario (o pendiente, si es consumible) */
+  comprometido: number;
+  /** Lo que todavía se puede pedir: 0 si está agotado, en uso o apartado */
+  disponible: number;
+  /** Por qué no hay disponible, si no lo hay */
+  motivo: string | null;
+};
+
 export type NuevaSolicitud = {
   practicaId: string;
   equipoId: string;
@@ -229,4 +269,94 @@ export type Racha = {
   puntos: number;
   puntosSiguienteNivel: number;
   siguienteRecompensa: string;
+};
+
+// ---------------------------- Cuentas (usuarios del sistema) ----------------------------
+
+/** Tipo de cuenta tal como lo maneja el back. ADMIN es el coordinador. */
+export type TipoCuenta = 'ALUMNO' | 'PROFESOR' | 'LABORATORISTA' | 'ADMIN';
+
+/** Cuerpo de POST /auth/registro (en el back: usuario, contrasena, tipo, nombre, apellido, matricula, grupo_id) */
+export type NuevaCuenta = {
+  /** Nombre corto de la cuenta y con el que se inicia sesión, p. ej. "ana.lopez" */
+  usuario: string;
+  contrasena: string;
+  tipo: TipoCuenta;
+  nombre: string;
+  apellido: string;
+  /** Solo ALUMNO. Obligatoria (8 caracteres). */
+  matricula?: string;
+  /** Solo ALUMNO. Obligatorio: el esquema exige grupo. */
+  grupoId?: number | null;
+};
+
+/** Cuenta ya registrada, lista para mostrar en la tabla */
+export type Cuenta = {
+  id: string;
+  usuario: string;
+  tipo: TipoCuenta;
+  nombre: string;
+  apellido: string;
+  matricula?: string;
+  grupo?: string;
+};
+
+/** Grupo escolar (tabla GRUPO del back), p. ej. "3-02" (semestre 3, grupo 2) */
+export type GrupoEscolar = {
+  id: number;
+  nombre: string;
+};
+
+// ---------------------------- Materias y asignaciones ----------------------------
+
+/** Tabla CARRERAS: enum cerrado con las 3 licenciaturas */
+export type Carrera = {
+  id: number;
+  nombre: string;
+};
+
+/** Tabla MATERIAS */
+export type Materia = {
+  id: number;
+  nombre: string;
+  carreraId: number;
+  carrera: string;
+};
+
+export type NuevaMateria = {
+  nombre: string;
+  carreraId: number;
+};
+
+/** Perfil de la tabla PERSONAL con rol PROFESOR */
+export type Profesor = {
+  /** profesor_id (no es el id de usuario) */
+  id: number;
+  usuarioId: string;
+  nombre: string;
+};
+
+/** Perfil de la tabla ALUMNOS */
+export type Alumno = {
+  /** alumno_id (no es el id de usuario) */
+  id: number;
+  usuarioId: string;
+  nombre: string;
+  matricula: string;
+  grupoId: number;
+  grupo: string;
+};
+
+/**
+ * Una fila de R_PROFESOR_MATERIA con los grupos de R_PROFMAT_GRUPO.
+ * Los equipos de alumnos cuelgan de una asignación y uno de sus grupos.
+ */
+export type AsignacionMateria = {
+  id: number;
+  materiaId: number;
+  materia: string;
+  profesorId: number;
+  profesorUsuarioId: string;
+  profesorNombre: string;
+  grupos: GrupoEscolar[];
 };

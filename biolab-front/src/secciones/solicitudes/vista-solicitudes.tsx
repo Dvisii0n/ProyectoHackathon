@@ -13,7 +13,7 @@ import { useDatos } from 'src/ganchos/usar-datos';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { ChipEstado, EncabezadoPagina } from 'src/componentes/comunes';
 import { colores, brincar, sxAparecer, sombraSuave, fuenteTitulos } from 'src/componentes/estilos';
-import { revisarSolicitud, entregarSolicitud, obtenerSolicitudes, registrarDevolucion } from 'src/servicios';
+import { revisarSolicitud, entregarSolicitud, obtenerSolicitudes, registrarDevolucion, obtenerDisponibilidad } from 'src/servicios';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -21,7 +21,7 @@ import { fechaAmigable, horarioPractica, aparienciaSolicitud } from '../comparti
 
 // ----------------------------------------------------------------------
 // Laboratorista: todo el ciclo del material en un solo lugar.
-// 1. Por revisar  → palomea qué presta (checklist) y al equipo le llega un QR
+// 1. Por revisar  → el equipo ya pidió; ve si alcanza y está disponible, palomea qué presta y al equipo le llega un QR
 // 2. Por entregar → escanea el QR y entrega
 // 3. Por recibir  → al terminar la práctica revisa cómo regresó cada cosa
 // ----------------------------------------------------------------------
@@ -39,7 +39,6 @@ export function VistaSolicitudes() {
   const { datos: solicitudes, setDatos: setSolicitudes } = useDatos(() => obtenerSolicitudes());
   const [pestana, setPestana] = useState<Pestana>('revisar');
   const [aviso, setAviso] = useState<{ tipo: 'success' | 'warning' | 'error'; texto: string } | null>(null);
-
   const reemplazar = (nueva: SolicitudMaterial) =>
     setSolicitudes((anteriores) => anteriores?.map((s) => (s.id === nueva.id ? nueva : s)) ?? null);
 
@@ -173,9 +172,11 @@ function TarjetaBase({ solicitud, children }: { solicitud: SolicitudMaterial; ch
           <Typography sx={{ fontWeight: 700, color: colores.verde }}>
             {solicitud.nombrePractica} · {horarioPractica(solicitud.inicioPractica, 1).split(' a ')[0]}
           </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            Pidió {solicitud.solicitanteNombre}, {fechaAmigable(solicitud.fecha)}
-          </Typography>
+          {solicitud.solicitanteNombre && (
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              Pidió {solicitud.solicitanteNombre}, {fechaAmigable(solicitud.fecha)}
+            </Typography>
+          )}
         </Box>
         <ChipEstado {...aparienciaSolicitud[solicitud.estado]} />
       </Box>
@@ -208,49 +209,91 @@ function ListaRenglones({ solicitud, soloAceptados = false }: { solicitud: Solic
 // ---------------------------- 1. Revisar (checklist) ----------------------------
 
 function TarjetaRevisar({ solicitud, onEnviar }: { solicitud: SolicitudMaterial; onEnviar: (aceptados: Record<string, boolean>) => Promise<void> }) {
-  const [aceptados, setAceptados] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(solicitud.renglones.map((r) => [r.articuloId, true]))
-  );
+  // Qué hay disponible para el horario de esa práctica (con datos de ejemplo es null: no se limita nada)
+  const { datos: disponibilidad, cargando } = useDatos(() => obtenerDisponibilidad(solicitud.practicaId, solicitud.equipoId), [solicitud.id]);
+  // Por defecto se presta lo que alcanza; el laboratorista quita lo que no quiera prestar
+  const [quitados, setQuitados] = useState<Record<string, boolean>>({});
   const [enviando, setEnviando] = useState(false);
-  const cuantos = Object.values(aceptados).filter(Boolean).length;
+  const [error, setError] = useState<string | null>(null);
+
+  const alcanza = (r: SolicitudMaterial['renglones'][number]) => {
+    const d = disponibilidad?.[r.articuloId];
+    return !d || r.cantidad <= d.disponible;
+  };
+  const sePresta = (r: SolicitudMaterial['renglones'][number]) => alcanza(r) && !quitados[r.articuloId];
+
+  const cuantos = solicitud.renglones.filter(sePresta).length;
+  const sinAlcanzar = solicitud.renglones.filter((r) => !alcanza(r)).length;
+
+  if (solicitud.renglones.length === 0) {
+    return (
+      <TarjetaBase solicitud={solicitud}>
+        <Typography sx={{ fontWeight: 700, color: colores.verde }}>El equipo todavía no hace su solicitud de materiales. Cuando la mande, aparece aquí para revisarla.</Typography>
+      </TarjetaBase>
+    );
+  }
 
   return (
     <TarjetaBase solicitud={solicitud}>
       <Typography sx={{ fontWeight: 800 }}>Palomea lo que sí prestas:</Typography>
+      {sinAlcanzar > 0 && (
+        <Alert severity="warning" sx={{ borderRadius: '16px', fontWeight: 700 }}>
+          {sinAlcanzar === 1 ? 'Un material no se puede prestar' : `${sinAlcanzar} materiales no se pueden prestar`}: no hay suficiente o no está disponible en el horario de esta práctica.
+        </Alert>
+      )}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {solicitud.renglones.map((r) => {
-          const si = aceptados[r.articuloId];
+          const d = disponibilidad?.[r.articuloId];
+          const puede = alcanza(r);
+          const si = sePresta(r);
           return (
             <ButtonBase
               key={r.articuloId}
-              onClick={() => setAceptados((a) => ({ ...a, [r.articuloId]: !a[r.articuloId] }))}
+              onClick={() => puede && setQuitados((a) => ({ ...a, [r.articuloId]: !a[r.articuloId] }))}
+              disabled={!puede}
               role="checkbox"
               aria-checked={si}
-              sx={{ justifyContent: 'flex-start', gap: 1.5, px: 1.75, py: 1.25, borderRadius: '16px', textAlign: 'left', bgcolor: si ? colores.menta : colores.rosa, transition: 'background .2s ease' }}
+              aria-disabled={!puede}
+              sx={{ justifyContent: 'flex-start', gap: 1.5, px: 1.75, py: 1.25, borderRadius: '16px', textAlign: 'left', bgcolor: si ? colores.menta : colores.rosa, transition: 'background .2s ease', '&.Mui-disabled': { opacity: 1 } }}
             >
               <Box sx={{ width: 30, height: 30, borderRadius: '9px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: si ? colores.verde : colores.tinto, color: colores.crema }}>
-                <Iconify key={String(si)} icon={si ? 'biolab:paloma' : 'biolab:cruz'} width={18} sx={{ animation: `${brincar} .3s both` }} />
+                <Iconify key={String(si)} icon={si ? 'biolab:paloma' : puede ? 'biolab:cruz' : 'biolab:prohibido'} width={18} sx={{ animation: `${brincar} .3s both` }} />
               </Box>
-              <Box sx={{ flex: 1, fontWeight: 800, textDecoration: si ? 'none' : 'line-through' }}>
-                {r.cantidad} × {r.nombre}
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Box sx={{ fontWeight: 800, textDecoration: si ? 'none' : 'line-through' }}>
+                  {r.cantidad} × {r.nombre}
+                </Box>
+                {d && (
+                  <Box sx={{ fontSize: 13, fontWeight: 700, color: puede ? colores.verde : colores.tinto }}>
+                    {puede
+                      ? `Alcanza: hay ${d.disponible} disponibles`
+                      : d.motivo && d.disponible === 0
+                        ? `No se puede prestar: ${d.motivo.toLowerCase()}`
+                        : `No alcanza: piden ${r.cantidad} y hay ${d.disponible} disponibles${d.comprometido > 0 ? ` (${d.comprometido} ya apartadas)` : ''}`}
+                  </Box>
+                )}
               </Box>
               <Box sx={{ fontSize: 13, fontWeight: 800, color: si ? colores.verde : colores.tinto }}>{si ? 'Se presta' : 'No se presta'}</Box>
             </ButtonBase>
           );
         })}
       </Box>
+      {error && <Alert severity="error" sx={{ borderRadius: '16px' }}>{error}</Alert>}
       <Button
-        disabled={enviando}
+        disabled={enviando || cargando}
         onClick={async () => {
           setEnviando(true);
+          setError(null);
           try {
-            await onEnviar(aceptados);
+            await onEnviar(Object.fromEntries(solicitud.renglones.map((r) => [r.articuloId, sePresta(r)])));
+          } catch (e) {
+            setError(e instanceof Error ? e.message : 'No se pudo guardar la revisión');
           } finally {
             setEnviando(false);
           }
         }}
         startIcon={<Iconify icon={cuantos > 0 ? 'biolab:qr' : 'biolab:cruz'} />}
-        sx={{ alignSelf: 'flex-start', borderRadius: 99, minHeight: 50, px: 3, bgcolor: cuantos > 0 ? colores.verde : colores.tinto, color: colores.crema, '&:hover': { bgcolor: cuantos > 0 ? colores.bosque : colores.tintoClaro } }}
+        sx={{ alignSelf: 'flex-start', borderRadius: 99, minHeight: 50, px: 3, bgcolor: cuantos > 0 ? colores.verde : colores.tinto, color: colores.crema, '&:hover': { bgcolor: cuantos > 0 ? colores.bosque : colores.tintoClaro }, '&.Mui-disabled': { bgcolor: colores.salvia, color: colores.crema } }}
       >
         {cuantos > 0 ? `Aprobar ${cuantos} de ${solicitud.renglones.length} y mandar QR` : 'Rechazar solicitud'}
       </Button>

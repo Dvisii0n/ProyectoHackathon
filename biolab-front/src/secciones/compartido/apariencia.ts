@@ -18,7 +18,7 @@ import { colores } from 'src/componentes/estilos';
 type Apariencia = { texto: string; icono: IconifyName; fondo: string; color: string };
 
 export const aparienciaSeveridad: Record<Severidad, Apariencia> = {
-  'en-orden': { texto: 'Todo en orden', icono: 'biolab:paloma', fondo: colores.menta, color: '#2E4429' },
+  'en-orden': { texto: 'Todo en orden', icono: 'biolab:paloma', fondo: colores.menta, color: '#6E2643' },
   advertencia: { texto: 'Advertencia', icono: 'biolab:exclamacion', fondo: colores.durazno, color: colores.cafeTexto },
   dano: { texto: 'Daño de equipo', icono: 'biolab:cruz', fondo: colores.tinto, color: colores.crema },
 };
@@ -44,7 +44,7 @@ export const aparienciaCalificacion: Record<Calificacion, { texto: string; icono
 };
 
 export const aparienciaEstadoEquipo: Record<EstadoEquipo, Apariencia> = {
-  disponible: { texto: 'Disponible', icono: 'biolab:paloma', fondo: colores.menta, color: '#2E4429' },
+  disponible: { texto: 'Disponible', icono: 'biolab:paloma', fondo: colores.menta, color: '#6E2643' },
   ocupado: { texto: 'Ocupado', icono: 'biolab:reloj', fondo: colores.durazno, color: colores.cafeTexto },
   mantenimiento: { texto: 'En mantenimiento', icono: 'biolab:alerta', fondo: colores.rosa, color: colores.tinto },
 };
@@ -66,12 +66,13 @@ export function fechaAmigable(iso: string, ahora = new Date()): string {
 }
 
 /** "2026-11-10T10:00:00", 2 → "lun 10 nov · 10:00 a 12:00" */
-export function horarioPractica(inicio: string, duracionHoras: number): string {
+export function horarioPractica(inicio: string, duracionHoras: number, finIso?: string): string {
   const fecha = new Date(inicio);
-  const fin = new Date(fecha.getTime() + duracionHoras * 3600000);
-  const dia = fecha.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '');
+  const fin = finIso ? new Date(finIso) : new Date(fecha.getTime() + duracionHoras * 3600000);
+  const dia = (f: Date) => f.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '');
   const hora = (f: Date) => f.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false });
-  return `${dia} · ${hora(fecha)} a ${hora(fin)}`;
+  const mismoDia = fecha.toDateString() === fin.toDateString();
+  return mismoDia ? `${dia(fecha)} · ${hora(fecha)} a ${hora(fin)}` : `${dia(fecha)} ${hora(fecha)} a ${dia(fin)} ${hora(fin)}`;
 }
 
 /** "2026-11-03T00:00:00" → "lunes 3 de noviembre" */
@@ -81,9 +82,9 @@ export function fechaLarga(fecha: Date): string {
 
 export const aparienciaSolicitud: Record<EstadoSolicitud, Apariencia> = {
   pendiente: { texto: 'Esperando revisión', icono: 'biolab:reloj', fondo: colores.durazno, color: colores.cafeTexto },
-  aprobada: { texto: 'Aprobada: muestra tu QR', icono: 'biolab:qr', fondo: colores.menta, color: '#2E4429' },
+  aprobada: { texto: 'Aprobada: muestra tu QR', icono: 'biolab:qr', fondo: colores.menta, color: '#6E2643' },
   rechazada: { texto: 'Rechazada', icono: 'biolab:cruz', fondo: colores.rosa, color: colores.tinto },
   entregada: { texto: 'Material entregado', icono: 'biolab:caja', fondo: colores.salvia, color: colores.bosque },
-  devuelta: { texto: 'Devuelto en orden', icono: 'biolab:paloma', fondo: colores.menta, color: '#2E4429' },
+  devuelta: { texto: 'Devuelto en orden', icono: 'biolab:paloma', fondo: colores.menta, color: '#6E2643' },
   'con-problemas': { texto: 'Devuelto con problemas', icono: 'biolab:alerta', fondo: colores.tinto, color: colores.crema },
 };

@@ -17,6 +17,7 @@ import DialogContent from '@mui/material/DialogContent';
 import { useDatos } from 'src/ganchos/usar-datos';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { decidirReporte, obtenerReportes } from 'src/servicios';
+import { ImagenProtegida } from 'src/componentes/imagen-protegida';
 import { ChipEstado, EncabezadoPagina } from 'src/componentes/comunes';
 import { sello, colores, brincar, sxAparecer, sxLevantar, sombraSuave, fuenteTitulos } from 'src/componentes/estilos';
 
@@ -43,7 +44,7 @@ const nombresRubro: Record<RubroReporte, string> = {
 };
 
 const inclinaciones = ['-1.2deg', '1deg', '.6deg', '-.8deg'];
-const fondosFoto = [colores.menta, colores.rosa, colores.durazno, '#E7EBDD'];
+const fondosFoto = [colores.menta, colores.rosa, colores.durazno, '#F2EFE8'];
 
 type Accion = { decision: Decision; texto: string; icono: IconifyName; fondo: string; circulo: string; colorCirculo: string; colorTexto: string };
 
@@ -164,6 +165,7 @@ type TarjetaReporteProps = {
 };
 
 function TarjetaReporte({ reporte, indice, onElegir, onDeshacer }: TarjetaReporteProps) {
+  const [viendoFotos, setViendoFotos] = useState(false);
   const severidad = aparienciaSeveridad[reporte.severidad];
   const decision = reporte.decision ? aparienciaDecision[reporte.decision] : null;
 
@@ -171,10 +173,17 @@ function TarjetaReporte({ reporte, indice, onElegir, onDeshacer }: TarjetaReport
     <Box sx={sxAparecer(0.15 + indice * 0.08)}>
       <Box component="article" sx={{ bgcolor: colores.crema, borderRadius: '28px', boxShadow: sombraSuave, p: 2, display: 'flex', flexDirection: 'column', gap: 1.75, ...sxLevantar }}>
         {/* Foto tipo polaroid con cinta */}
-        <Box sx={{ position: 'relative', p: '10px 10px 30px', bgcolor: '#FBFAF3', borderRadius: '6px', boxShadow: '0 6px 16px -10px rgba(18,42,14,.5)', transform: `rotate(${inclinaciones[indice % 4]})` }}>
+        <Box sx={{ position: 'relative', p: '10px 10px 30px', bgcolor: '#FBFAF7', borderRadius: '6px', boxShadow: '0 6px 16px -10px rgba(90,31,55,.5)', transform: `rotate(${inclinaciones[indice % 4]})` }}>
           <Box aria-hidden sx={{ position: 'absolute', top: -10, left: '50%', width: 84, height: 22, ml: '-42px', bgcolor: colores.rosa, opacity: 0.85, transform: 'rotate(-3deg)', borderRadius: '3px' }} />
           {reporte.fotos[0] ? (
-            <Box component="img" src={reporte.fotos[0]} alt={`Aula de ${reporte.titulo}`} sx={{ width: 1, height: 150, objectFit: 'cover', borderRadius: '4px' }} />
+            <ButtonBase onClick={() => setViendoFotos(true)} aria-label={`Ver evidencias de ${reporte.titulo} (${reporte.fotos.length})`} sx={{ position: 'relative', display: 'block', width: 1, height: 150, borderRadius: '4px', overflow: 'hidden' }}>
+              <ImagenProtegida src={reporte.fotos[0]} alt={`Evidencia de ${reporte.titulo}`} />
+              {reporte.fotos.length > 1 && (
+                <Box component="span" sx={{ position: 'absolute', right: 8, bottom: 8, px: 1.25, py: 0.4, borderRadius: 99, bgcolor: 'rgba(52,10,14,.82)', color: colores.crema, fontSize: 13, fontWeight: 800 }}>
+                  +{reporte.fotos.length - 1} fotos
+                </Box>
+              )}
+            </ButtonBase>
           ) : (
             <Box sx={{ height: 150, borderRadius: '4px', bgcolor: fondosFoto[indice % 4], display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.75, color: colores.verde }}>
               <Iconify icon="biolab:galeria" width={38} />
@@ -252,7 +261,7 @@ function TarjetaReporte({ reporte, indice, onElegir, onDeshacer }: TarjetaReport
         {decision ? (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1.25, py: 1.25, pl: 2, pr: 1.5, borderRadius: '18px', bgcolor: colores.papel, animation: `${brincar} .45s both` }}>
             <Typography sx={{ fontWeight: 800 }}>{decision.mensaje}</Typography>
-            <Button onClick={onDeshacer} sx={{ borderRadius: 99, px: 2, bgcolor: colores.crema, color: colores.bosque, boxShadow: '0 4px 12px -8px rgba(18,42,14,.5)' }}>
+            <Button onClick={onDeshacer} sx={{ borderRadius: 99, px: 2, bgcolor: colores.crema, color: colores.bosque, boxShadow: '0 4px 12px -8px rgba(90,31,55,.5)' }}>
               Deshacer
             </Button>
           </Box>
@@ -287,11 +296,43 @@ function TarjetaReporte({ reporte, indice, onElegir, onDeshacer }: TarjetaReport
           </Box>
         )}
       </Box>
+
+      <DialogoEvidencias abierto={viendoFotos} titulo={reporte.titulo} fotos={reporte.fotos} onCerrar={() => setViendoFotos(false)} />
     </Box>
   );
 }
 
 // ----------------------------------------------------------------------
+
+/** Todas las fotos de evidencia de un reporte */
+function DialogoEvidencias({ abierto, titulo, fotos, onCerrar }: { abierto: boolean; titulo: string; fotos: string[]; onCerrar: () => void }) {
+  return (
+    <Dialog open={abierto} onClose={onCerrar} fullWidth maxWidth="md" slotProps={{ paper: { sx: { borderRadius: '28px', bgcolor: colores.crema } } }}>
+      <DialogTitle sx={{ fontFamily: fuenteTitulos, fontWeight: 600, fontSize: 24 }}>
+        Evidencias · {titulo}
+        <Typography component="span" sx={{ display: 'block', fontSize: 15, fontWeight: 700, color: colores.verde }}>
+          {fotos.length} {fotos.length === 1 ? 'foto' : 'fotos'}
+        </Typography>
+      </DialogTitle>
+      <DialogContent>
+        {abierto && (
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 1.5 }}>
+            {fotos.map((foto, i) => (
+              <Box key={foto} sx={{ aspectRatio: '4 / 3', borderRadius: '18px', overflow: 'hidden', bgcolor: colores.papelOscuro }}>
+                <ImagenProtegida src={foto} alt={`Evidencia ${i + 1} de ${titulo}`} sx={{ objectFit: 'contain' }} />
+              </Box>
+            ))}
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ p: 2.5 }}>
+        <Button onClick={onCerrar} sx={{ borderRadius: 99, px: 2.5, bgcolor: colores.papel, color: colores.bosque }}>
+          Cerrar
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
 
 type DialogoSancionProps = {
   abierto: boolean;

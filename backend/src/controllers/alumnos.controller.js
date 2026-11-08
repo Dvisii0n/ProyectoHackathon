@@ -6,11 +6,21 @@ import {
 } from '../utils/validaciones.js';
 
 const COLUMNAS = `a.alumno_id, a.nombre, a.apellido, a.matricula,
-                  a.usuario_id, u.usuario, a.grupo_id, g.grupo`;
+                  a.fk_usuario AS usuario_id, u.usuario,
+                  a.fk_grupo_id AS grupo_id, g.grupo`;
 
 const JOINS = `FROM alumnos a
-               JOIN usuarios u ON u.usuario_id = a.usuario_id
-               LEFT JOIN grupo g ON g.grupo_id = a.grupo_id`;
+               JOIN usuarios u ON u.usuario_id = a.fk_usuario
+               LEFT JOIN grupo g ON g.grupo_id = a.fk_grupo_id`;
+
+/** La matrícula es CHAR(8) en la base. */
+function validarMatricula(matricula) {
+  if (typeof matricula !== 'string' || matricula.trim().length !== 8) {
+    throw new ApiError(400, 'La matrícula debe tener exactamente 8 caracteres');
+  }
+
+  return matricula.trim();
+}
 
 /** GET /api/alumnos */
 export async function listar(req, res) {
@@ -39,18 +49,23 @@ export async function obtener(req, res) {
 
 /** POST /api/alumnos */
 export async function crear(req, res) {
-  const { nombre, apellido, matricula, usuario_id, grupo_id = null } = req.body ?? {};
+  const { nombre, apellido, matricula, usuario_id, grupo_id } = req.body ?? {};
+
+  if (grupo_id === undefined || grupo_id === null) {
+    throw new ApiError(400, 'grupo_id es obligatorio');
+  }
 
   const { rows } = await query(
-    `INSERT INTO alumnos (nombre, apellido, matricula, usuario_id, grupo_id)
+    `INSERT INTO alumnos (nombre, apellido, matricula, fk_usuario, fk_grupo_id)
      VALUES ($1, $2, $3, $4, $5)
-     RETURNING alumno_id, nombre, apellido, matricula, usuario_id, grupo_id`,
+     RETURNING alumno_id, nombre, apellido, matricula,
+               fk_usuario AS usuario_id, fk_grupo_id AS grupo_id`,
     [
-      textoRequerido(nombre, 'El nombre', { max: 100 }),
-      textoRequerido(apellido, 'El apellido', { max: 100 }),
-      textoRequerido(matricula, 'La matrícula', { max: 50 }),
+      textoRequerido(nombre, 'El nombre', { max: 60 }),
+      textoRequerido(apellido, 'El apellido', { max: 80 }),
+      validarMatricula(matricula),
       enteroPositivo(usuario_id, 'usuario_id'),
-      enteroPositivo(grupo_id, 'grupo_id', { permitirNulo: true }),
+      enteroPositivo(grupo_id, 'grupo_id'),
     ],
   );
 
@@ -65,28 +80,28 @@ export async function actualizar(req, res) {
   const valores = [];
 
   if (nombre !== undefined) {
-    valores.push(textoRequerido(nombre, 'El nombre', { max: 100 }));
+    valores.push(textoRequerido(nombre, 'El nombre', { max: 60 }));
     campos.push(`nombre = $${valores.length}`);
   }
 
   if (apellido !== undefined) {
-    valores.push(textoRequerido(apellido, 'El apellido', { max: 100 }));
+    valores.push(textoRequerido(apellido, 'El apellido', { max: 80 }));
     campos.push(`apellido = $${valores.length}`);
   }
 
   if (matricula !== undefined) {
-    valores.push(textoRequerido(matricula, 'La matrícula', { max: 50 }));
+    valores.push(validarMatricula(matricula));
     campos.push(`matricula = $${valores.length}`);
   }
 
   if (usuario_id !== undefined) {
     valores.push(enteroPositivo(usuario_id, 'usuario_id'));
-    campos.push(`usuario_id = $${valores.length}`);
+    campos.push(`fk_usuario = $${valores.length}`);
   }
 
   if (grupo_id !== undefined) {
-    valores.push(enteroPositivo(grupo_id, 'grupo_id', { permitirNulo: true }));
-    campos.push(`grupo_id = $${valores.length}`);
+    valores.push(enteroPositivo(grupo_id, 'grupo_id'));
+    campos.push(`fk_grupo_id = $${valores.length}`);
   }
 
   if (campos.length === 0) {
@@ -99,7 +114,8 @@ export async function actualizar(req, res) {
     `UPDATE alumnos
         SET ${campos.join(', ')}
       WHERE alumno_id = $${valores.length}
-      RETURNING alumno_id, nombre, apellido, matricula, usuario_id, grupo_id`,
+      RETURNING alumno_id, nombre, apellido, matricula,
+                fk_usuario AS usuario_id, fk_grupo_id AS grupo_id`,
     valores,
   );
 

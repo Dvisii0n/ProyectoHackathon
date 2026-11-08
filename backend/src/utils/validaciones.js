@@ -59,6 +59,29 @@ export function enteroPositivo(valor, campo, { permitirNulo = false } = {}) {
   return numero;
 }
 
+/** Valida un entero mayor o igual a cero, opcionalmente permitiendo null. */
+export function enteroNoNegativo(valor, campo, { permitirNulo = false } = {}) {
+  if (valor === undefined) {
+    return undefined;
+  }
+
+  if (valor === null) {
+    if (permitirNulo) {
+      return null;
+    }
+
+    throw new ApiError(400, `${campo} es obligatorio`);
+  }
+
+  const numero = Number(valor);
+
+  if (!Number.isInteger(numero) || numero < 0) {
+    throw new ApiError(400, `${campo} debe ser un entero mayor o igual a 0`);
+  }
+
+  return numero;
+}
+
 /** Valida que el valor pertenezca a una lista cerrada. */
 export function validarEnum(valor, campo, permitidos) {
   if (!permitidos.includes(valor)) {
@@ -67,3 +90,32 @@ export function validarEnum(valor, campo, permitidos) {
 
   return valor;
 }
+
+/** Valida una fecha/hora obligatoria y la devuelve en ISO 8601. */
+export function fechaRequerida(valor, campo) {
+  if (typeof valor !== 'string' && !(valor instanceof Date)) {
+    throw new ApiError(400, `${campo} debe ser una fecha válida`);
+  }
+
+  const fecha = new Date(valor);
+
+  if (Number.isNaN(fecha.getTime())) {
+    throw new ApiError(400, `${campo} debe ser una fecha válida`);
+  }
+
+  return fecha.toISOString();
+}
+
+/** Valida una fecha/hora opcional (usada en actualizaciones parciales). */
+export function fechaOpcional(valor, campo) {
+  if (valor === undefined) {
+    return undefined;
+  }
+
+  if (valor === null) {
+    return null;
+  }
+
+  return fechaRequerida(valor, campo);
+}
+

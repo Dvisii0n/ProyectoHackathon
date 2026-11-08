@@ -28,6 +28,7 @@ const consejosPorRuta: Record<string, string> = {
   '/': 'Tienes reportes esperando. Decidir te toma 2 minutos.',
   '/reportes': 'Un toque por reporte. Si te equivocas, puedes deshacer.',
   '/reportes/nuevo': 'Toca una carita por cada cosa. Capi camina hasta la meta contigo.',
+  '/usuarios': 'Elige el tipo de cuenta y llena los datos. El alumno necesita matrícula.',
   '/inventario': 'Los tubitos en tinto se están acabando.',
   '/horarios': 'Los recuadros con "+" están libres.',
   '/pedir-material': 'Pide para todo tu equipo. Se abre una semana antes de la práctica.',

@@ -1,26 +1,30 @@
 import type { IconifyName } from 'src/components/iconify/register-icons';
 import type { Calificacion, RubroReporte, CalificacionesReporte } from 'src/tipos/dominio';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import ButtonBase from '@mui/material/ButtonBase';
+import IconButton from '@mui/material/IconButton';
 
 import { RouterLink } from 'src/routes/components';
 
 import { Capi } from 'src/componentes/capi';
 import { useDatos } from 'src/ganchos/usar-datos';
+import { MAX_EVIDENCIAS } from 'src/tipos/dominio';
 import { DashboardContent } from 'src/layouts/dashboard';
-import { crearReporte, obtenerPracticasDeHoy } from 'src/servicios';
+import { crearReporte, obtenerPracticasParaReporte } from 'src/servicios';
 import { Confeti, Tarjeta, NumeroPaso, EncabezadoPagina } from 'src/componentes/comunes';
 import { colores, brincar, caminar, sxLevantar, fuenteTitulos } from 'src/componentes/estilos';
 
 import { Iconify } from 'src/components/iconify';
 
-import { aparienciaCalificacion } from '../compartido/apariencia';
+import { horarioPractica, aparienciaCalificacion } from '../compartido/apariencia';
 
 // ----------------------------------------------------------------------
 // Reporte de aula en menos de un minuto (laboratorista o profesor).
@@ -36,17 +40,18 @@ const rubros: { id: RubroReporte; nombre: string; icono: IconifyName }[] = [
 const opciones: Calificacion[] = ['bien', 'regular', 'mal'];
 
 export function VistaNuevoReporte() {
-  const { datos: practicas } = useDatos(obtenerPracticasDeHoy);
+  const { datos: practicas, cargando: cargandoPracticas } = useDatos(obtenerPracticasParaReporte);
 
-  const [practicaId, setPracticaId] = useState<string | null>(null);
+  const [practicaId, setPracticaId] = useState('');
   const [calificaciones, setCalificaciones] = useState<Partial<CalificacionesReporte>>({});
-  const [fotoLlegada, setFotoLlegada] = useState<File | null>(null);
-  const [fotoEntrega, setFotoEntrega] = useState<File | null>(null);
+  const [evidencias, setEvidencias] = useState<File[]>([]);
   const [nota, setNota] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fotosFallidas, setFotosFallidas] = useState(0);
 
-  const practicaElegida = practicaId ?? practicas?.[0]?.id ?? null;
+  const practicaElegida = practicas?.find((p) => p.id === practicaId) ?? null;
   const calificados = rubros.filter((r) => calificaciones[r.id]).length;
   const avance = Math.round((calificados / rubros.length) * 100);
   const completo = calificados === rubros.length && !!practicaElegida;
@@ -54,24 +59,30 @@ export function VistaNuevoReporte() {
   const enviar = async () => {
     if (!completo || !practicaElegida) return;
     setEnviando(true);
+    setError(null);
     try {
-      await crearReporte({
-        practicaId: practicaElegida,
+      const resultado = await crearReporte({
+        practicaId: practicaElegida.id,
         calificaciones: calificaciones as CalificacionesReporte,
-        fotos: [fotoLlegada, fotoEntrega].filter((f): f is File => !!f),
+        fotos: evidencias,
         nota: nota.trim() || undefined,
       });
+      setFotosFallidas(resultado.fotosFallidas);
       setEnviado(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo enviar el reporte');
     } finally {
       setEnviando(false);
     }
   };
 
   const reiniciar = () => {
+    setPracticaId('');
     setCalificaciones({});
-    setFotoLlegada(null);
-    setFotoEntrega(null);
+    setEvidencias([]);
     setNota('');
+    setError(null);
+    setFotosFallidas(0);
     setEnviado(false);
   };
 
@@ -94,6 +105,11 @@ export function VistaNuevoReporte() {
             <Typography sx={{ fontSize: 17, fontWeight: 600 }}>
               El coordinador ya lo tiene en su bandeja. Gracias por cuidar el laboratorio; Capi te regala una mandarina.
             </Typography>
+            {fotosFallidas > 0 && (
+              <Alert severity="warning" sx={{ borderRadius: '16px' }}>
+                {fotosFallidas === 1 ? 'Una foto no se pudo subir' : `${fotosFallidas} fotos no se pudieron subir`}, pero el reporte sí se envió. No lo repitas: avísale al coordinador si hace falta la evidencia.
+              </Alert>
+            )}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 0.75 }}>
               <Button onClick={reiniciar} size="large" sx={{ borderRadius: 99, px: 3, bgcolor: colores.crema, color: colores.bosque }}>
                 Hacer otro reporte
@@ -128,22 +144,37 @@ export function VistaNuevoReporte() {
           </Box>
 
           <Tarjeta retraso={0.14}>
-            <TituloPaso numero={1}>¿De qué práctica es?</TituloPaso>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25 }}>
-              {practicas?.map((practica) => {
-                const activa = practica.id === practicaElegida;
-                return (
-                  <Button
-                    key={practica.id}
-                    onClick={() => setPracticaId(practica.id)}
-                    aria-pressed={activa}
-                    sx={{ borderRadius: 99, minHeight: 48, px: 2.5, bgcolor: activa ? colores.bosque : colores.papel, color: activa ? colores.crema : colores.bosque, '&:hover': { bgcolor: activa ? colores.verde : colores.papelOscuro } }}
-                  >
-                    {practica.nombre} · {practica.grupo}
-                  </Button>
-                );
-              })}
-            </Box>
+            <TituloPaso numero={1}>¿De qué práctica es el reporte?</TituloPaso>
+            {practicas && practicas.length === 0 ? (
+              <Alert severity="info" sx={{ borderRadius: '16px' }}>
+                Todavía no hay prácticas que hayan empezado. Cuando un profesor cree una y llegue su hora, podrás reportarla aquí.
+              </Alert>
+            ) : (
+              <TextField
+                select
+                fullWidth
+                label="Práctica"
+                value={practicaId}
+                onChange={(evento) => setPracticaId(evento.target.value)}
+                disabled={cargandoPracticas}
+                helperText={practicaElegida ? `${practicaElegida.profesorNombre ? `Profesor: ${practicaElegida.profesorNombre} · ` : ''}${horarioPractica(practicaElegida.inicio, practicaElegida.duracionHoras, practicaElegida.fin)}` : 'Elige la práctica a la que pertenece este reporte'}
+                sx={{ bgcolor: colores.papel, borderRadius: 2 }}
+              >
+                {practicas?.map((practica) => (
+                  <MenuItem key={practica.id} value={practica.id}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                      <span>
+                        <b>{practica.nombre}</b>
+                        {practica.grupo ? ` · Grupo ${practica.grupo}` : ''}
+                      </span>
+                      <Typography variant="body2" sx={{ color: colores.verde, fontWeight: 600 }}>
+                        {horarioPractica(practica.inicio, practica.duracionHoras, practica.fin)}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
           </Tarjeta>
 
           <Tarjeta retraso={0.2}>
@@ -178,7 +209,7 @@ export function VistaNuevoReporte() {
                             fontSize: 12,
                             bgcolor: elegida ? apariencia.color : colores.crema,
                             color: elegida ? colores.crema : colores.verde,
-                            boxShadow: elegida ? '0 10px 20px -12px rgba(18,42,14,.7)' : 'none',
+                            boxShadow: elegida ? '0 10px 20px -12px rgba(90,31,55,.7)' : 'none',
                             transition: 'transform .12s ease, background .2s ease',
                             '&:active': { transform: 'scale(.94)' },
                           }}
@@ -195,11 +226,13 @@ export function VistaNuevoReporte() {
           </Tarjeta>
 
           <Tarjeta retraso={0.26}>
-            <TituloPaso numero={3}>Toma fotos del aula</TituloPaso>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 1.75 }}>
-              <SubirFoto texto="Al llegar" archivo={fotoLlegada} onCambiar={setFotoLlegada} fondo={colores.menta} color={colores.verde} />
-              <SubirFoto texto="Al entregar" archivo={fotoEntrega} onCambiar={setFotoEntrega} fondo={colores.rosa} color={colores.tintoClaro} />
-            </Box>
+            <TituloPaso numero={3}>
+              Evidencias{' '}
+              <Box component="span" sx={{ fontFamily: 'inherit', fontSize: 15, fontWeight: 700, color: colores.verde }}>
+                (opcional · hasta {MAX_EVIDENCIAS} fotos)
+              </Box>
+            </TituloPaso>
+            <Evidencias fotos={evidencias} onCambiar={setEvidencias} />
           </Tarjeta>
 
           <Tarjeta retraso={0.32}>
@@ -219,6 +252,12 @@ export function VistaNuevoReporte() {
             />
           </Tarjeta>
 
+          {error && (
+            <Alert severity="error" sx={{ borderRadius: '16px' }}>
+              {error}
+            </Alert>
+          )}
+
           <Box>
             <Button
               onClick={enviar}
@@ -232,7 +271,7 @@ export function VistaNuevoReporte() {
                 fontSize: 18,
                 bgcolor: colores.verde,
                 color: colores.crema,
-                boxShadow: '0 14px 28px -14px rgba(18,42,14,.7)',
+                boxShadow: '0 14px 28px -14px rgba(90,31,55,.7)',
                 '&:hover': { bgcolor: colores.bosque },
                 '&.Mui-disabled': { bgcolor: colores.salviaClara, color: colores.verde },
               }}
@@ -257,35 +296,84 @@ function TituloPaso({ numero, children }: { numero: number; children: React.Reac
   );
 }
 
-type SubirFotoProps = {
-  texto: string;
-  archivo: File | null;
-  onCambiar: (archivo: File | null) => void;
-  fondo: string;
-  color: string;
-};
-
-/** Botón grande que abre la cámara del celular (o el explorador en compu) */
-function SubirFoto({ texto, archivo, onCambiar, fondo, color }: SubirFotoProps) {
-  const entrada = useRef<HTMLInputElement>(null);
+/** Miniatura de una foto con botón para quitarla */
+function Miniatura({ archivo, numero, onQuitar }: { archivo: File; numero: number; onQuitar: () => void }) {
+  // La URL se crea y se libera dentro del mismo efecto: así sobrevive al doble montaje de React en desarrollo
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const nueva = URL.createObjectURL(archivo);
+    setUrl(nueva);
+    return () => URL.revokeObjectURL(nueva);
+  }, [archivo]);
 
   return (
-    <ButtonBase
-      onClick={() => entrada.current?.click()}
-      sx={{ minHeight: 140, borderRadius: '22px', border: `3px dashed ${colores.salvia}`, bgcolor: colores.papel, flexDirection: 'column', gap: 1, fontWeight: 800, fontSize: 16, color: colores.bosque, ...sxLevantar }}
-    >
-      <input
-        ref={entrada}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        hidden
-        onChange={(evento) => onCambiar(evento.target.files?.[0] ?? null)}
-      />
-      <Box sx={{ width: 58, height: 58, borderRadius: '50%', bgcolor: archivo ? colores.verde : fondo, color: archivo ? colores.crema : color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Iconify icon={archivo ? 'biolab:paloma' : 'biolab:camara'} width={30} />
+    <Box sx={{ position: 'relative', aspectRatio: '1', borderRadius: '18px', overflow: 'hidden', bgcolor: colores.papelOscuro, animation: `${brincar} .4s both` }}>
+      {url && <Box component="img" src={url} alt={`Evidencia ${numero}`} sx={{ width: 1, height: 1, objectFit: 'cover', display: 'block' }} />}
+      <IconButton
+        aria-label={`Quitar evidencia ${numero}`}
+        onClick={onQuitar}
+        size="small"
+        sx={{ position: 'absolute', top: 6, right: 6, bgcolor: 'rgba(255,254,251,.92)', color: colores.tinto, '&:hover': { bgcolor: colores.rosa } }}
+      >
+        <Iconify icon="biolab:cruz" width={16} />
+      </IconButton>
+    </Box>
+  );
+}
+
+type EvidenciasProps = {
+  fotos: File[];
+  onCambiar: (fotos: File[]) => void;
+};
+
+/** Hasta MAX_EVIDENCIAS fotos: abre la cámara del celular o el explorador en compu */
+function Evidencias({ fotos, onCambiar }: EvidenciasProps) {
+  const entrada = useRef<HTMLInputElement>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const lleno = fotos.length >= MAX_EVIDENCIAS;
+
+  const agregar = (lista: FileList | null) => {
+    const nuevas = Array.from(lista ?? []).filter((f) => f.type.startsWith('image/'));
+    const caben = MAX_EVIDENCIAS - fotos.length;
+    setAviso(
+      nuevas.length < (lista?.length ?? 0)
+        ? 'Solo se pueden subir imágenes.'
+        : nuevas.length > caben
+          ? `Solo caben ${MAX_EVIDENCIAS} fotos: se agregaron las primeras ${caben}.`
+          : null,
+    );
+    onCambiar([...fotos, ...nuevas.slice(0, caben)]);
+    // para poder volver a elegir la misma foto después de quitarla
+    if (entrada.current) entrada.current.value = '';
+  };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      <input ref={entrada} type="file" accept="image/*" multiple hidden onChange={(evento) => agregar(evento.target.files)} />
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 1.5 }}>
+        {fotos.map((archivo, i) => (
+          <Miniatura key={`${archivo.name}-${archivo.lastModified}-${i}`} archivo={archivo} numero={i + 1} onQuitar={() => onCambiar(fotos.filter((_, j) => j !== i))} />
+        ))}
+
+        {!lleno && (
+          <ButtonBase
+            onClick={() => entrada.current?.click()}
+            aria-label="Agregar evidencia"
+            sx={{ aspectRatio: '1', borderRadius: '18px', border: `3px dashed ${colores.salvia}`, bgcolor: colores.papel, flexDirection: 'column', gap: 0.75, fontWeight: 800, fontSize: 14, color: colores.bosque, ...sxLevantar }}
+          >
+            <Box sx={{ width: 46, height: 46, borderRadius: '50%', bgcolor: colores.menta, color: colores.verde, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Iconify icon="biolab:camara" width={24} />
+            </Box>
+            Agregar foto
+          </ButtonBase>
+        )}
       </Box>
-      {archivo ? `${texto}: lista` : texto}
-    </ButtonBase>
+
+      <Typography sx={{ fontWeight: 700, color: lleno ? colores.tinto : colores.verde }}>
+        {fotos.length} de {MAX_EVIDENCIAS} fotos{lleno ? ' · ya no caben más' : ''}
+      </Typography>
+      {aviso && <Alert severity="warning" sx={{ borderRadius: '16px' }}>{aviso}</Alert>}
+    </Box>
   );
 }

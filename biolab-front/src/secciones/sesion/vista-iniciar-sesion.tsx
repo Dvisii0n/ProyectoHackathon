@@ -27,7 +27,7 @@ export function VistaIniciarSesion() {
   const router = useRouter();
   const { sesionIniciada, permisos, iniciarSesion } = useSesion();
 
-  const [correo, setCorreo] = useState('');
+  const [usuario, setUsuario] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [entrando, setEntrando] = useState(false);
@@ -41,9 +41,9 @@ export function VistaIniciarSesion() {
     setError(null);
     setEntrando(true);
     try {
-      const usuario = await entrar(correo, contrasena);
-      iniciarSesion(usuario);
-      router.replace(rutaInicio(permisosPorRol[usuario.rol]));
+      const sesion = await entrar(usuario, contrasena);
+      iniciarSesion(sesion);
+      router.replace(rutaInicio(permisosPorRol[sesion.rol]));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo iniciar sesión');
     } finally {
@@ -51,11 +51,11 @@ export function VistaIniciarSesion() {
     }
   };
 
-  /** Solo con datos de ejemplo: llena el correo de un usuario de prueba */
+  /** Solo con datos de ejemplo: llena el usuario de prueba */
   const llenarDemo = (rol: Rol) => {
-    const usuario = usuariosMock.find((u) => u.rol === rol);
-    if (usuario) {
-      setCorreo(usuario.correo);
+    const demo = usuariosMock.find((u) => u.rol === rol);
+    if (demo) {
+      setUsuario(demo.usuario);
       setContrasena('demo');
     }
   };
@@ -67,7 +67,7 @@ export function VistaIniciarSesion() {
         <Typography component="h1" sx={{ fontFamily: fuenteTitulos, fontWeight: 600, fontSize: 32 }}>
           Bienvenido a Biolab
         </Typography>
-        <Typography sx={{ fontWeight: 600, color: colores.verde }}>Laboratorio de la Licenciatura en Biomédica</Typography>
+        <Typography sx={{ fontWeight: 600, color: colores.verde }}>Laboratorio de la Licenciatura en Ciencias Biomédicas</Typography>
       </Box>
 
       {error && (
@@ -76,7 +76,7 @@ export function VistaIniciarSesion() {
         </Alert>
       )}
 
-      <TextField label="Correo institucional" type="email" autoComplete="email" required value={correo} onChange={(e) => setCorreo(e.target.value)} fullWidth />
+      <TextField label="Usuario" autoComplete="username" required value={usuario} onChange={(e) => setUsuario(e.target.value)} fullWidth />
       <TextField label="Contraseña" type="password" autoComplete="current-password" required value={contrasena} onChange={(e) => setContrasena(e.target.value)} fullWidth />
 
       <Button

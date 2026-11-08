@@ -56,7 +56,7 @@ export function SelectorRol() {
           pr: 1.5,
           borderRadius: 99,
           bgcolor: colores.crema,
-          boxShadow: '0 8px 20px -12px rgba(18,42,14,.45)',
+          boxShadow: '0 8px 20px -12px rgba(90,31,55,.45)',
           fontWeight: 800,
           fontSize: 14,
           color: colores.bosque,

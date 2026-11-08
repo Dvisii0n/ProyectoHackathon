@@ -24,6 +24,8 @@ export const PaginaPrestamo = lazy(() => import('src/paginas/prestamo'));
 export const PaginaPracticas = lazy(() => import('src/paginas/practicas'));
 export const PaginaMisPracticas = lazy(() => import('src/paginas/mis-practicas'));
 export const PaginaSolicitudes = lazy(() => import('src/paginas/solicitudes'));
+export const PaginaUsuarios = lazy(() => import('src/paginas/usuarios'));
+export const PaginaMaterias = lazy(() => import('src/paginas/materias'));
 export const PaginaGaleria = lazy(() => import('src/paginas/galeria'));
 export const PaginaIniciarSesion = lazy(() => import('src/paginas/iniciar-sesion'));
 export const Page404 = lazy(() => import('src/pages/page-not-found'));
@@ -69,6 +71,8 @@ export const routesSection: RouteObject[] = [
       { path: 'practicas', element: <RutaProtegida permiso="gestionarPracticas"><PaginaPracticas /></RutaProtegida> },
       { path: 'mis-practicas', element: <RutaProtegida permiso="verMisPracticas"><PaginaMisPracticas /></RutaProtegida> },
       { path: 'solicitudes', element: <RutaProtegida permiso="revisarSolicitudes"><PaginaSolicitudes /></RutaProtegida> },
+      { path: 'usuarios', element: <RutaProtegida permiso="gestionarUsuarios"><PaginaUsuarios /></RutaProtegida> },
+      { path: 'materias', element: <RutaProtegida permiso="gestionarMaterias"><PaginaMaterias /></RutaProtegida> },
       { path: 'galeria', element: <RutaProtegida permiso="verGaleria"><PaginaGaleria /></RutaProtegida> },
     ],
   },

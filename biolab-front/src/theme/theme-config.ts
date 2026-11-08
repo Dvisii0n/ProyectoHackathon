@@ -37,23 +37,23 @@ export const themeConfig: ThemeConfig = {
    * Palette
    *************************************** */
   palette: {
-    // Verde bosque: color principal de Biolab
+    // Magenta 883053 (Pantone 1945 U): color principal de Biolab
     primary: {
-      lighter: '#DDE4CC',
-      light: '#7E9A6A',
-      main: '#41553E',
-      dark: '#2E4429',
-      darker: '#122A0E',
-      contrastText: '#FFFEF8',
+      lighter: '#EAD3DC',
+      light: '#B0587A',
+      main: '#883053',
+      dark: '#6E2643',
+      darker: '#5A1F37',
+      contrastText: '#FFFEFB',
     },
     // Tinto: acentos de marca, sanciones y alertas importantes
     secondary: {
-      lighter: '#EBD9D5',
+      lighter: '#EAD3DC',
       light: '#A86A6A',
       main: '#854949',
       dark: '#671B1C',
       darker: '#4A1213',
-      contrastText: '#FFFEF8',
+      contrastText: '#FFFEFB',
     },
     info: {
       lighter: '#DCEBF0',
@@ -61,7 +61,7 @@ export const themeConfig: ThemeConfig = {
       main: '#4F8BA8',
       dark: '#2F5F78',
       darker: '#173A4C',
-      contrastText: '#FFFEF8',
+      contrastText: '#FFFEFB',
     },
     success: {
       lighter: '#DDE4CC',
@@ -78,28 +78,28 @@ export const themeConfig: ThemeConfig = {
       main: '#C27536',
       dark: '#7A3F22',
       darker: '#4E2614',
-      contrastText: '#FFFEF8',
+      contrastText: '#FFFEFB',
     },
     error: {
-      lighter: '#EBD9D5',
+      lighter: '#EAD3DC',
       light: '#A86A6A',
       main: '#8E2B2C',
       dark: '#671B1C',
       darker: '#4A1213',
-      contrastText: '#FFFEF8',
+      contrastText: '#FFFEFB',
     },
-    // Grises cálidos (crema y salvia) en lugar de grises fríos
+    // Neutros de la paleta: d8d2c4, a9a9a9 y 696969
     grey: {
-      '50': '#FFFEF8',
-      '100': '#F7F5EA',
-      '200': '#F4F2E4',
-      '300': '#E2E4D4',
-      '400': '#D5DCC6',
-      '500': '#A3A891',
-      '600': '#6E745F',
-      '700': '#41553E',
-      '800': '#1F3A1A',
-      '900': '#122A0E',
+      '50': '#FFFEFB',
+      '100': '#F7F5F0',
+      '200': '#F2EFE8',
+      '300': '#E6E1D6',
+      '400': '#D8D2C4',
+      '500': '#A9A9A9',
+      '600': '#8A8A8A',
+      '700': '#696969',
+      '800': '#4A4A4A',
+      '900': '#5A1F37',
     },
     common: { black: '#000000', white: '#FFFFFF' },
   },

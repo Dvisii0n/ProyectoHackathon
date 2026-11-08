@@ -2,15 +2,16 @@ import { query } from '../config/db.js';
 import { ApiError } from '../utils/ApiError.js';
 import { enteroPositivo, textoRequerido } from '../utils/validaciones.js';
 
-const COLUMNAS = `m.materia_id, m.nombre, m.carrera_id, c.carrera`;
+const COLUMNAS = `m.materia_id, m.nombre,
+                  m.fk_carrera_id AS carrera_id, c.carrera`;
+
+const JOINS = `FROM materias m
+               JOIN carreras c ON c.carrera_id = m.fk_carrera_id`;
 
 /** GET /api/materias */
 export async function listar(req, res) {
   const { rows } = await query(
-    `SELECT ${COLUMNAS}
-       FROM materias m
-       JOIN carreras c ON c.carrera_id = m.carrera_id
-      ORDER BY m.materia_id`,
+    `SELECT ${COLUMNAS} ${JOINS} ORDER BY m.materia_id`,
   );
 
   res.json({ materias: rows });
@@ -21,10 +22,7 @@ export async function obtener(req, res) {
   const id = enteroPositivo(req.params.id, 'id');
 
   const { rows } = await query(
-    `SELECT ${COLUMNAS}
-       FROM materias m
-       JOIN carreras c ON c.carrera_id = m.carrera_id
-      WHERE m.materia_id = $1`,
+    `SELECT ${COLUMNAS} ${JOINS} WHERE m.materia_id = $1`,
     [id],
   );
 
@@ -40,11 +38,11 @@ export async function crear(req, res) {
   const { nombre, carrera_id } = req.body ?? {};
 
   const { rows } = await query(
-    `INSERT INTO materias (nombre, carrera_id)
+    `INSERT INTO materias (nombre, fk_carrera_id)
      VALUES ($1, $2)
-     RETURNING materia_id, nombre, carrera_id`,
+     RETURNING materia_id, nombre, fk_carrera_id AS carrera_id`,
     [
-      textoRequerido(nombre, 'El nombre', { max: 150 }),
+      textoRequerido(nombre, 'El nombre', { max: 255 }),
       enteroPositivo(carrera_id, 'carrera_id'),
     ],
   );
@@ -60,13 +58,13 @@ export async function actualizar(req, res) {
   const valores = [];
 
   if (nombre !== undefined) {
-    valores.push(textoRequerido(nombre, 'El nombre', { max: 150 }));
+    valores.push(textoRequerido(nombre, 'El nombre', { max: 255 }));
     campos.push(`nombre = $${valores.length}`);
   }
 
   if (carrera_id !== undefined) {
     valores.push(enteroPositivo(carrera_id, 'carrera_id'));
-    campos.push(`carrera_id = $${valores.length}`);
+    campos.push(`fk_carrera_id = $${valores.length}`);
   }
 
   if (campos.length === 0) {
@@ -79,7 +77,7 @@ export async function actualizar(req, res) {
     `UPDATE materias
         SET ${campos.join(', ')}
       WHERE materia_id = $${valores.length}
-      RETURNING materia_id, nombre, carrera_id`,
+      RETURNING materia_id, nombre, fk_carrera_id AS carrera_id`,
     valores,
   );
 

@@ -85,10 +85,10 @@ export function Capi({
       {/* Bata (encima del cuerpo, detrás de la cabeza) */}
       {accesorios.bata && (
         <g>
-          <path d="M72 31H110C124 31 133 42 134 56V84H76C73 84 72 81 72 78Z" fill="#FFFEF8" />
-          <path d="M74 31L84 47L94 31" fill="none" stroke="#B9C4A0" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-          <path d="M84 47V84" stroke="#D5DCC6" strokeWidth="2" />
-          <rect x="96" y="60" width="11" height="9" rx="2" fill="none" stroke="#B9C4A0" strokeWidth="2" />
+          <path d="M72 31H110C124 31 133 42 134 56V84H76C73 84 72 81 72 78Z" fill="#FFFEFB" />
+          <path d="M74 31L84 47L94 31" fill="none" stroke="#A9A9A9" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+          <path d="M84 47V84" stroke="#D8D2C4" strokeWidth="2" />
+          <rect x="96" y="60" width="11" height="9" rx="2" fill="none" stroke="#A9A9A9" strokeWidth="2" />
           <path d="M99 60v-6" stroke="#854949" strokeWidth="2.4" strokeLinecap="round" />
         </g>
       )}
@@ -109,7 +109,7 @@ export function Capi({
       {animo === 'feliz' && (
         <g>
           <ellipse className="capi-ojo" cx="42" cy="31" rx="3" ry="3.6" fill="#2B1B10" />
-          <circle cx="43.2" cy="29.6" r="1" fill="#FFFEF8" />
+          <circle cx="43.2" cy="29.6" r="1" fill="#FFFEFB" />
           <path d="M8 60q6 3 12 0" fill="none" stroke="#4A2E1E" strokeWidth="2.2" strokeLinecap="round" />
           <ellipse cx="34" cy="47" rx="6" ry="3.2" fill="#E59C97" opacity=".75" />
         </g>
@@ -133,9 +133,9 @@ export function Capi({
       {/* Lentes de seguridad */}
       {accesorios.lentes && (
         <g>
-          <path d="M53 31H71" stroke="#41553E" strokeWidth="3" strokeLinecap="round" />
-          <rect x="31" y="23" width="22" height="16" rx="7" fill="#CFE6EE" fillOpacity=".45" stroke="#41553E" strokeWidth="3" />
-          <path d="M35 27l5-2" stroke="#FFFEF8" strokeWidth="2" strokeLinecap="round" />
+          <path d="M53 31H71" stroke="#883053" strokeWidth="3" strokeLinecap="round" />
+          <rect x="31" y="23" width="22" height="16" rx="7" fill="#CFE6EE" fillOpacity=".45" stroke="#883053" strokeWidth="3" />
+          <path d="M35 27l5-2" stroke="#FFFEFB" strokeWidth="2" strokeLinecap="round" />
         </g>
       )}
 
@@ -143,13 +143,13 @@ export function Capi({
       {accesorios.mandarina && !triste && (
         <g className="capi-mandarina">
           <circle cx="40" cy="8" r="8.5" fill="#E8964A" />
-          <path d="M40 0q6-6 11-2q-5 4-11 2z" fill="#41553E" />
+          <path d="M40 0q6-6 11-2q-5 4-11 2z" fill="#883053" />
         </g>
       )}
       {accesorios.mandarina && triste && (
         <g>
           <circle cx="133" cy="93" r="6" fill="#E8964A" />
-          <path d="M133 87q4-4 8-1q-4 3-8 1z" fill="#41553E" />
+          <path d="M133 87q4-4 8-1q-4 3-8 1z" fill="#883053" />
         </g>
       )}
     </Box>

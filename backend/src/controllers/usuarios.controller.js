@@ -1,16 +1,18 @@
 import bcrypt from 'bcryptjs';
 import { query } from '../config/db.js';
 import { ApiError } from '../utils/ApiError.js';
-import { enteroPositivo, textoRequerido } from '../utils/validaciones.js';
+import { enteroPositivo, textoRequerido, validarEnum } from '../utils/validaciones.js';
 
-const COLUMNAS = 'usuario_id, usuario, creado_en';
+const COLUMNAS = 'usuario_id, usuario, rol, activo, fecha_alta';
+
+const ROLES = ['ADMIN', 'PROFESOR', 'LABORATORISTA', 'ALUMNO'];
 
 function normalizarUsuario(usuario) {
   return String(usuario).trim().toLowerCase();
 }
 
 function validarUsuario(usuario) {
-  return normalizarUsuario(textoRequerido(usuario, 'El usuario', { min: 3, max: 50 }));
+  return normalizarUsuario(textoRequerido(usuario, 'El usuario', { min: 3, max: 30 }));
 }
 
 function validarContrasena(contrasena) {
@@ -19,6 +21,22 @@ function validarContrasena(contrasena) {
   }
 
   return contrasena;
+}
+
+function validarRol(valor) {
+  return validarEnum(
+    String(valor ?? '').trim().toUpperCase(),
+    'rol',
+    ROLES,
+  );
+}
+
+function validarActivo(valor) {
+  if (typeof valor !== 'boolean') {
+    throw new ApiError(400, 'El campo "activo" debe ser booleano');
+  }
+
+  return valor;
 }
 
 /** GET /api/usuarios */
@@ -48,10 +66,12 @@ export async function obtener(req, res) {
 
 /** POST /api/usuarios */
 export async function crear(req, res) {
-  const { usuario, contrasena } = req.body ?? {};
+  const { usuario, contrasena, rol, tipo, activo = true } = req.body ?? {};
 
   const usuarioNormalizado = validarUsuario(usuario);
   validarContrasena(contrasena);
+  const rolValidado = validarRol(rol ?? tipo);
+  const activoValidado = validarActivo(activo);
 
   const existente = await query(
     'SELECT usuario_id FROM usuarios WHERE usuario = $1',
@@ -65,10 +85,10 @@ export async function crear(req, res) {
   const hash = await bcrypt.hash(contrasena, 10);
 
   const { rows } = await query(
-    `INSERT INTO usuarios (usuario, contrasena)
-     VALUES ($1, $2)
+    `INSERT INTO usuarios (usuario, contrasena, rol, activo)
+     VALUES ($1, $2, $3, $4)
      RETURNING ${COLUMNAS}`,
-    [usuarioNormalizado, hash],
+    [usuarioNormalizado, hash, rolValidado, activoValidado],
   );
 
   res.status(201).json({ usuario: rows[0] });
@@ -77,13 +97,25 @@ export async function crear(req, res) {
 /** PATCH /api/usuarios/:id */
 export async function actualizar(req, res) {
   const id = enteroPositivo(req.params.id, 'id');
-  const { usuario, contrasena } = req.body ?? {};
+  const { usuario, contrasena, rol, tipo, activo } = req.body ?? {};
   const campos = [];
   const valores = [];
 
   if (usuario !== undefined) {
     valores.push(validarUsuario(usuario));
     campos.push(`usuario = $${valores.length}`);
+  }
+
+  if (rol !== undefined || tipo !== undefined) {
+    const rolValidado = validarRol(rol ?? tipo);
+
+    valores.push(rolValidado);
+    campos.push(`rol = $${valores.length}`);
+  }
+
+  if (activo !== undefined) {
+    valores.push(validarActivo(activo));
+    campos.push(`activo = $${valores.length}`);
   }
 
   if (contrasena !== undefined) {

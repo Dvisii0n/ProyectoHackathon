@@ -1,7 +1,15 @@
 import pg from 'pg';
 import { env } from './env.js';
 
-const { Pool } = pg;
+const { Pool, types } = pg;
+
+/**
+ * Las columnas TIMESTAMP (sin zona) guardan la hora en UTC: el front manda
+ * fechas ISO con "Z" y aquí se leen de vuelta como UTC. Sin esto Node las
+ * interpreta como hora local del servidor y se recorren varias horas.
+ */
+const OID_TIMESTAMP = 1114;
+types.setTypeParser(OID_TIMESTAMP, (valor) => new Date(`${valor.replace(' ', 'T')}Z`));
 
 /** Pool de conexiones reutilizables a PostgreSQL. */
 export const pool = new Pool({
@@ -10,6 +18,8 @@ export const pool = new Pool({
   user: env.db.user,
   password: env.db.password,
   database: env.db.database,
+  // CURRENT_TIMESTAMP (fecha_alta, reportes…) también en UTC
+  options: '-c timezone=UTC',
   ...(env.db.ssl ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 

@@ -35,6 +35,10 @@ export type Permisos = {
   /** Laboratorista: acepta/rechaza solicitudes, entrega y recibe material */
   revisarSolicitudes: boolean;
   verGaleria: boolean;
+  /** Coordinador y laboratorista: dan de alta cuentas (el back lo exige) */
+  gestionarUsuarios: boolean;
+  /** Coordinador y laboratorista: materias, profesor y grupos de cada una */
+  gestionarMaterias: boolean;
 };
 
 const ninguno: Permisos = {
@@ -48,12 +52,28 @@ const ninguno: Permisos = {
   pedirMaterial: false,
   revisarSolicitudes: false,
   verGaleria: false,
+  gestionarUsuarios: false,
+  gestionarMaterias: false,
+};
+
+/** Coordinador y laboratorista hacen lo mismo, salvo ver y decidir reportes (solo el coordinador) */
+const permisosGestion: Permisos = {
+  ...ninguno,
+  verPanel: true,
+  decidirReportes: true,
+  crearReportes: true,
+  verInventario: true,
+  editarInventario: true,
+  revisarSolicitudes: true,
+  gestionarUsuarios: true,
+  gestionarMaterias: true,
 };
 
 /** Qué puede hacer cada rol. Las pantallas preguntan por permisos, nunca por el rol directo. */
 export const permisosPorRol: Record<Rol, Permisos> = {
-  coordinador: { ...ninguno, verPanel: true, decidirReportes: true, verInventario: true },
-  laboratorista: { ...ninguno, verPanel: true, crearReportes: true, verInventario: true, editarInventario: true, revisarSolicitudes: true },
+  coordinador: permisosGestion,
+  // El laboratorista crea reportes pero no los ve: la bandeja es del coordinador
+  laboratorista: { ...permisosGestion, decidirReportes: false },
   profesor: { ...ninguno, crearReportes: true, verInventario: true, gestionarPracticas: true },
   alumno: { ...ninguno, verMisPracticas: true, pedirMaterial: true, verGaleria: true },
 };

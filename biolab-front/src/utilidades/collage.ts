@@ -10,7 +10,7 @@ const MEDIDAS: Record<FormatoCollage, { ancho: number; alto: number }> = {
   historia: { ancho: 1080, alto: 1920 },
 };
 
-const TINTES = ['#DDE4CC', '#EBD9D5', '#F2E2D2', '#E7EBDD', '#B9C4A0', '#D5DCC6', '#E3B98C', '#C9D2B6', '#E59C97'];
+const TINTES = ['#EAE5DB', '#EAD3DC', '#F2E2D2', '#F2EFE8', '#A9A9A9', '#D8D2C4', '#E3B98C', '#C9C3B5', '#E59C97'];
 
 export function columnasCollage(cantidad: number): number {
   if (cantidad <= 1) return 1;
@@ -61,11 +61,11 @@ export async function generarCollage(fotos: FotoPractica[], formato: FormatoColl
   await document.fonts.ready;
 
   // Fondo verde bosque
-  ctx.fillStyle = '#122A0E';
+  ctx.fillStyle = '#5A1F37';
   ctx.fillRect(0, 0, ancho, alto);
 
   // Título
-  ctx.fillStyle = '#F7F5EA';
+  ctx.fillStyle = '#F7F5F0';
   ctx.textAlign = 'center';
   ctx.font = "600 56px 'Fraunces Variable', Georgia, serif";
   ctx.fillText(titulo, ancho / 2, 110);
@@ -94,7 +94,7 @@ export async function generarCollage(fotos: FotoPractica[], formato: FormatoColl
     } else {
       ctx.fillStyle = TINTES[i % TINTES.length];
       ctx.fillRect(x, y, anchoCelda, altoCelda);
-      ctx.fillStyle = '#41553E';
+      ctx.fillStyle = '#883053';
       ctx.font = "700 34px 'Nunito Variable', sans-serif";
       ctx.fillText(foto.titulo, x + anchoCelda / 2, y + altoCelda / 2);
     }
@@ -102,9 +102,9 @@ export async function generarCollage(fotos: FotoPractica[], formato: FormatoColl
   });
 
   // Pie con la marca
-  ctx.fillStyle = '#F7F5EA';
+  ctx.fillStyle = '#F7F5F0';
   ctx.font = "600 40px 'Fraunces Variable', Georgia, serif";
-  ctx.fillText('Biolab · Biomédica', ancho / 2, alto - 55);
+  ctx.fillText('Biolab · Ciencias Biomédicas', ancho / 2, alto - 55);
 
   return new Promise((resolver, rechazar) => {
     lienzo.toBlob((blob) => (blob ? resolver(blob) : rechazar(new Error('No se pudo crear la imagen'))), 'image/png');

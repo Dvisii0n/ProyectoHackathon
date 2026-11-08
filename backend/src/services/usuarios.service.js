@@ -9,7 +9,7 @@ import {
 
 export const TIPOS_USUARIO = ['ALUMNO', 'PROFESOR', 'LABORATORISTA', 'ADMIN'];
 
-const COLUMNAS_USUARIO = 'usuario_id, usuario, creado_en';
+const COLUMNAS_USUARIO = 'usuario_id, usuario, rol, activo, fecha_alta';
 
 /** Normaliza el nombre de usuario para evitar duplicados por mayúsculas. */
 export function normalizarUsuario(usuario) {
@@ -19,7 +19,7 @@ export function normalizarUsuario(usuario) {
 /** Valida y normaliza los datos de registro según el tipo elegido. */
 export function validarRegistro(datos = {}) {
   const usuario = normalizarUsuario(
-    textoRequerido(datos.usuario, 'El usuario', { min: 3, max: 50 }),
+    textoRequerido(datos.usuario, 'El usuario', { min: 3, max: 30 }),
   );
 
   if (typeof datos.contrasena !== 'string' || datos.contrasena.length < 4) {
@@ -32,15 +32,25 @@ export function validarRegistro(datos = {}) {
     TIPOS_USUARIO,
   );
 
-  const nombre = textoRequerido(datos.nombre, 'El nombre', { max: 100 });
-  const apellido = textoRequerido(datos.apellido, 'El apellido', { max: 100 });
+  const esAlumno = tipo === 'ALUMNO';
+  const nombre = textoRequerido(datos.nombre, 'El nombre', { max: esAlumno ? 60 : 100 });
+  const apellido = textoRequerido(datos.apellido, 'El apellido', { max: esAlumno ? 80 : 100 });
 
   let matricula = null;
   let grupoId = null;
 
-  if (tipo === 'ALUMNO') {
-    matricula = textoRequerido(datos.matricula, 'La matrícula', { max: 50 });
-    grupoId = enteroPositivo(datos.grupo_id ?? null, 'grupo_id', { permitirNulo: true });
+  if (esAlumno) {
+    if (typeof datos.matricula !== 'string' || datos.matricula.trim().length !== 8) {
+      throw new ApiError(400, 'La matrícula debe tener exactamente 8 caracteres');
+    }
+
+    matricula = datos.matricula.trim();
+
+    if (datos.grupo_id === undefined || datos.grupo_id === null) {
+      throw new ApiError(400, 'grupo_id es obligatorio para alumnos');
+    }
+
+    grupoId = enteroPositivo(datos.grupo_id, 'grupo_id');
   }
 
   return {
@@ -57,6 +67,9 @@ export function validarRegistro(datos = {}) {
 /**
  * Crea el usuario y su perfil (alumno o personal) en una transacción.
  * Si algo falla, no queda ningún registro a medias.
+ *
+ * El rol ADMIN solo vive en `usuarios.rol`; no tiene fila en `personal`
+ * porque el enum `rol_personal` únicamente admite PROFESOR y LABORATORISTA.
  */
 export async function crearUsuarioConPerfil(datos) {
   const hash = await bcrypt.hash(datos.contrasena, 10);
@@ -83,30 +96,32 @@ export async function crearUsuarioConPerfil(datos) {
     }
 
     const { rows } = await cliente.query(
-      `INSERT INTO usuarios (usuario, contrasena)
-       VALUES ($1, $2)
+      `INSERT INTO usuarios (usuario, contrasena, rol)
+       VALUES ($1, $2, $3)
        RETURNING ${COLUMNAS_USUARIO}`,
-      [datos.usuario, hash],
+      [datos.usuario, hash, datos.tipo],
     );
 
     const usuario = rows[0];
 
-    let perfil;
+    let perfil = null;
 
     if (datos.tipo === 'ALUMNO') {
       const resultado = await cliente.query(
-        `INSERT INTO alumnos (nombre, apellido, matricula, usuario_id, grupo_id)
+        `INSERT INTO alumnos (nombre, apellido, matricula, fk_usuario, fk_grupo_id)
          VALUES ($1, $2, $3, $4, $5)
-         RETURNING alumno_id, nombre, apellido, matricula, usuario_id, grupo_id`,
+         RETURNING alumno_id, nombre, apellido, matricula,
+                   fk_usuario AS usuario_id, fk_grupo_id AS grupo_id`,
         [datos.nombre, datos.apellido, datos.matricula, usuario.usuario_id, datos.grupoId],
       );
 
       perfil = resultado.rows[0];
-    } else {
+    } else if (datos.tipo === 'PROFESOR' || datos.tipo === 'LABORATORISTA') {
       const resultado = await cliente.query(
-        `INSERT INTO personal (nombre, apellido, tipo, usuario_id)
+        `INSERT INTO personal (nombre, apellido, rol, fk_usuario_id)
          VALUES ($1, $2, $3, $4)
-         RETURNING profesor_id, nombre, apellido, tipo, usuario_id`,
+         RETURNING profesor_id, nombre, apellido,
+                   rol AS tipo, fk_usuario_id AS usuario_id`,
         [datos.nombre, datos.apellido, datos.tipo, usuario.usuario_id],
       );
 
@@ -117,29 +132,42 @@ export async function crearUsuarioConPerfil(datos) {
   });
 }
 
-/** Obtiene el tipo y el perfil asociado a un usuario. */
+/** Obtiene el rol y el perfil asociado a un usuario. */
 export async function obtenerPerfilUsuario(usuarioId) {
-  const alumno = await query(
-    `SELECT alumno_id, nombre, apellido, matricula, usuario_id, grupo_id
-       FROM alumnos
-      WHERE usuario_id = $1`,
+  const usuario = await query(
+    'SELECT rol FROM usuarios WHERE usuario_id = $1',
     [usuarioId],
   );
 
-  if (alumno.rowCount > 0) {
-    return { tipo: 'ALUMNO', perfil: alumno.rows[0] };
+  const tipo = usuario.rows[0]?.rol ?? null;
+
+  if (tipo === 'ALUMNO') {
+    const alumno = await query(
+      `SELECT alumno_id, nombre, apellido, matricula,
+              fk_usuario AS usuario_id, fk_grupo_id AS grupo_id
+         FROM alumnos
+        WHERE fk_usuario = $1`,
+      [usuarioId],
+    );
+
+    if (alumno.rowCount > 0) {
+      return { tipo, perfil: alumno.rows[0] };
+    }
   }
 
-  const personal = await query(
-    `SELECT profesor_id, nombre, apellido, tipo, usuario_id
-       FROM personal
-      WHERE usuario_id = $1`,
-    [usuarioId],
-  );
+  if (tipo === 'PROFESOR' || tipo === 'LABORATORISTA') {
+    const personal = await query(
+      `SELECT profesor_id, nombre, apellido,
+              rol AS tipo, fk_usuario_id AS usuario_id
+         FROM personal
+        WHERE fk_usuario_id = $1`,
+      [usuarioId],
+    );
 
-  if (personal.rowCount > 0) {
-    return { tipo: personal.rows[0].tipo, perfil: personal.rows[0] };
+    if (personal.rowCount > 0) {
+      return { tipo, perfil: personal.rows[0] };
+    }
   }
 
-  return { tipo: null, perfil: null };
+  return { tipo, perfil: null };
 }

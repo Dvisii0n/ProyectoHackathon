@@ -26,12 +26,12 @@ import { Iconify } from 'src/components/iconify';
 const iconosRecompensa: Record<IdRecompensa, { icono: IconifyName; fondo: string; color: string }> = {
   mandarina: { icono: 'biolab:mandarina', fondo: colores.durazno, color: colores.mandarinaOscura },
   lentes: { icono: 'biolab:lentes', fondo: colores.menta, color: colores.verde },
-  bata: { icono: 'biolab:bata', fondo: '#E7EBDD', color: colores.verde },
+  bata: { icono: 'biolab:bata', fondo: '#F2EFE8', color: colores.verde },
   gorro: { icono: 'biolab:gorro', fondo: colores.papelOscuro, color: '#7A7F70' },
   termal: { icono: 'biolab:termal', fondo: colores.papelOscuro, color: '#7A7F70' },
 };
 
-const TINTES = ['#DDE4CC', '#EBD9D5', '#F2E2D2', '#E7EBDD', '#B9C4A0', '#D5DCC6', '#E3B98C', '#C9D2B6', '#E59C97'];
+const TINTES = ['#EAE5DB', '#EAD3DC', '#F2E2D2', '#F2EFE8', '#A9A9A9', '#D8D2C4', '#E3B98C', '#C9C3B5', '#E59C97'];
 const INCLINACIONES = ['-2deg', '1.5deg', '-1deg', '2deg', '-1.5deg', '1deg', '-2.5deg', '1.8deg', '-.8deg'];
 const MINIMO_FOTOS = 4;
 const MAXIMO_FOTOS = 9;
@@ -86,7 +86,7 @@ export function VistaGaleria() {
       <Box sx={{ position: 'relative', overflow: 'hidden', bgcolor: colores.salviaClara, borderRadius: '34px', p: { xs: 3, md: 4 }, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 3.5, mb: 3, ...sxAparecer(0.08) }}>
         <Box sx={{ flex: '0 0 auto', width: 250, display: 'flex', flexDirection: 'column', alignItems: 'center', mx: 'auto' }}>
           <Capi ancho={240} accesorios={puestos} flotando etiqueta="Capi, tu mascota" />
-          <Box sx={{ width: 160, height: 14, mt: -0.5, borderRadius: '50%', bgcolor: 'rgba(18,42,14,.14)' }} />
+          <Box sx={{ width: 160, height: 14, mt: -0.5, borderRadius: '50%', bgcolor: 'rgba(90,31,55,.14)' }} />
         </Box>
         <Box sx={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1.5 }}>
@@ -199,10 +199,10 @@ export function VistaGaleria() {
                     flexDirection: 'column',
                     gap: 0.6,
                     borderRadius: '6px',
-                    bgcolor: '#FBFAF3',
+                    bgcolor: '#FBFAF7',
                     transform: `rotate(${INCLINACIONES[i % INCLINACIONES.length]})`,
                     transition: 'transform .25s ease, box-shadow .25s ease',
-                    boxShadow: elegida ? `0 0 0 3px ${colores.verde}, 0 12px 22px -12px rgba(18,42,14,.6)` : '0 8px 18px -10px rgba(18,42,14,.45)',
+                    boxShadow: elegida ? `0 0 0 3px ${colores.verde}, 0 12px 22px -12px rgba(90,31,55,.6)` : '0 8px 18px -10px rgba(90,31,55,.45)',
                     '&:hover': { transform: 'rotate(0deg) scale(1.03)' },
                   }}
                 >
@@ -259,7 +259,7 @@ export function VistaGaleria() {
               display: 'flex',
               flexDirection: 'column',
               gap: 1.25,
-              boxShadow: '0 18px 36px -18px rgba(18,42,14,.7)',
+              boxShadow: '0 18px 36px -18px rgba(90,31,55,.7)',
               transition: 'max-width .35s ease',
             }}
           >
@@ -279,7 +279,7 @@ export function VistaGaleria() {
             )}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, fontFamily: fuenteTitulos, fontWeight: 600, fontSize: 15, color: colores.crema }}>
               <Capi ancho={34} />
-              Biolab · Biomédica
+              Biolab · Ciencias Biomédicas
             </Box>
           </Box>
 

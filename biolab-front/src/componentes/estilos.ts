@@ -2,23 +2,25 @@ import { keyframes } from '@emotion/react';
 
 // ----------------------------------------------------------------------
 // Colores y animaciones compartidas de Biolab.
-// La paleta también está en src/theme/theme-config.ts (primary = verde, secondary = tinto);
+// La paleta también está en src/theme/theme-config.ts (primary = magenta 883053, secondary = tinto);
 // aquí van los tonos pastel que MUI no trae por defecto.
 // ----------------------------------------------------------------------
 
 export const colores = {
-  bosque: '#122A0E',
-  verde: '#41553E',
-  verdeClaro: '#7E9A6A',
-  salvia: '#B9C4A0',
-  salviaClara: '#D5DCC6',
-  menta: '#DDE4CC',
-  crema: '#FFFEF8',
-  papel: '#F4F2E4',
-  papelOscuro: '#EDEBDD',
+  bosque: '#5A1F37',
+  verde: '#883053',
+  verdeClaro: '#B0587A',
+  salvia: '#A9A9A9',
+  salviaClara: '#D8D2C4',
+  menta: '#EAE5DB',
+  crema: '#FFFEFB',
+  papel: '#F2EFE8',
+  papelOscuro: '#E6E1D6',
   tinto: '#671B1C',
-  tintoClaro: '#854949',
-  rosa: '#EBD9D5',
+  tintoClaro: '#696969',
+  /** Fondo de los artículos bajos en stock */
+  rojoSuave: '#F7D4D4',
+  rosa: '#EAD3DC',
   durazno: '#F2E2D2',
   mandarina: '#E8964A',
   mandarinaOscura: '#C27536',
@@ -30,14 +32,12 @@ export const colores = {
 export const fuenteTitulos = "'Fraunces Variable', Georgia, serif";
 export const fuenteTexto = "'Nunito Variable', system-ui, sans-serif";
 
-export const sombraSuave = '0 1px 0 rgba(18,42,14,.05), 0 14px 30px -16px rgba(18,42,14,.3)';
-export const sombraFlotante = '0 18px 40px -16px rgba(18,42,14,.5)';
+export const sombraSuave = '0 1px 0 rgba(90,31,55,.05), 0 14px 30px -16px rgba(90,31,55,.3)';
+export const sombraFlotante = '0 18px 40px -16px rgba(90,31,55,.5)';
 
-/** Fondo de "cuaderno de laboratorio" con puntitos */
+/** Fondo liso de las pantallas */
 export const fondoCuaderno = {
   backgroundColor: colores.papel,
-  backgroundImage: 'radial-gradient(#D9DDC8 1.4px, transparent 1.6px)',
-  backgroundSize: '22px 22px',
 };
 
 // ---------------------------- Animaciones ----------------------------
@@ -142,7 +142,7 @@ export const sxAparecer = (retraso = 0) => ({
 /** sx para tarjetas que se levantan al pasar el mouse */
 export const sxLevantar = {
   transition: 'transform .22s ease, box-shadow .22s ease',
-  '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 22px 38px -18px rgba(18,42,14,.45)' },
+  '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 22px 38px -18px rgba(90,31,55,.45)' },
 };
 
 /** sx para respetar a quien pide menos movimiento */

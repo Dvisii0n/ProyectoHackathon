@@ -9,13 +9,11 @@ import {
   validarRegistro,
 } from '../services/usuarios.service.js';
 
+const COLUMNAS_USUARIO = 'usuario_id, usuario, rol, activo, fecha_alta';
+
 /** POST /api/auth/registro */
 export async function registro(req, res) {
   const datos = validarRegistro(req.body ?? {});
-
-  if (datos.tipo === 'ADMIN' && req.usuario.tipo !== 'ADMIN') {
-    throw new ApiError(403, 'Solo un administrador puede registrar administradores');
-  }
 
   const { usuario, tipo, perfil } = await crearUsuarioConPerfil(datos);
 
@@ -29,23 +27,31 @@ export async function registro(req, res) {
 
 /** POST /api/auth/login */
 export async function login(req, res) {
-  const { usuario, contrasena } = req.body ?? {};
+  // Se inicia sesión con el nombre de usuario. `correo` se acepta por
+  // compatibilidad con clientes viejos, pero el esquema ya no lo almacena.
+  const { usuario, correo, contrasena } = req.body ?? {};
+  const identificador = typeof usuario === 'string' ? usuario : correo;
 
-  if (typeof usuario !== 'string' || typeof contrasena !== 'string') {
+  if (typeof identificador !== 'string' || typeof contrasena !== 'string') {
     throw new ApiError(400, 'Usuario y contraseña son obligatorios');
   }
 
   const { rows } = await query(
-    `SELECT usuario_id, usuario, contrasena, creado_en
+    `SELECT usuario_id, usuario, rol, activo, fecha_alta, contrasena
        FROM usuarios
-      WHERE usuario = $1`,
-    [normalizarUsuario(usuario)],
+      WHERE usuario = $1
+      LIMIT 1`,
+    [normalizarUsuario(identificador)],
   );
 
   const usuarioEncontrado = rows[0];
 
   if (!usuarioEncontrado || !(await bcrypt.compare(contrasena, usuarioEncontrado.contrasena))) {
     throw new ApiError(401, 'Credenciales inválidas');
+  }
+
+  if (!usuarioEncontrado.activo) {
+    throw new ApiError(403, 'La cuenta está desactivada');
   }
 
   delete usuarioEncontrado.contrasena;
@@ -63,7 +69,7 @@ export async function login(req, res) {
 /** GET /api/auth/perfil (requiere token) */
 export async function perfil(req, res) {
   const { rows } = await query(
-    'SELECT usuario_id, usuario, creado_en FROM usuarios WHERE usuario_id = $1',
+    `SELECT ${COLUMNAS_USUARIO} FROM usuarios WHERE usuario_id = $1`,
     [req.usuario.id],
   );
 

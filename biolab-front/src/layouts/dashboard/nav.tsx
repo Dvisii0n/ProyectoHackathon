@@ -12,6 +12,7 @@ import Drawer, { drawerClasses } from '@mui/material/Drawer';
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { USAR_MOCKS } from 'src/servicios/cliente-api';
 import { colores, fuenteTitulos } from 'src/componentes/estilos';
 
 import { Iconify } from 'src/components/iconify';
@@ -193,7 +194,7 @@ export function NavContent({ data, slots, sx }: NavContentProps) {
       <HojaDecorativa />
 
       <Box sx={{ position: 'relative', my: 2, p: 1.5, borderRadius: '18px', bgcolor: 'rgba(213,220,198,.1)', color: colores.salviaClara, typography: 'caption', fontWeight: 700 }}>
-        Prototipo con datos de ejemplo
+        {USAR_MOCKS ? 'Prototipo con datos de ejemplo' : 'Conectado a la API'}
       </Box>
     </>
   );
@@ -244,7 +245,7 @@ function MarcaBiolab() {
           Biolab
         </Box>
         <Box sx={{ mt: 0.5, fontSize: 11, fontWeight: 800, letterSpacing: '.08em', color: colores.salvia }}>
-          LIC. EN BIOMÉDICA
+          LIC. EN CIENCIAS BIOMÉDICAS
         </Box>
       </Box>
     </Box>
